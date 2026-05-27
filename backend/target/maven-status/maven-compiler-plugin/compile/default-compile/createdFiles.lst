@@ -1,4 +1,12 @@
 com\invoiceocr\auth\AuthController.class
+com\invoiceocr\auth\dto\GoogleLoginRequest.class
 com\invoiceocr\InvoiceOcrApplication.class
+com\invoiceocr\security\JwtAuthenticationFilter.class
+com\invoiceocr\user\UserProfile.class
+com\invoiceocr\common\ErrorResponse.class
+com\invoiceocr\user\Role.class
 com\invoiceocr\common\ApiResponse.class
+com\invoiceocr\security\JwtService.class
 com\invoiceocr\config\SecurityConfig.class
+com\invoiceocr\auth\dto\AuthResponse.class
+com\invoiceocr\auth\AuthService.class

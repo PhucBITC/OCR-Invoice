@@ -1,4 +1,12 @@
 D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\auth\AuthController.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\auth\AuthService.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\auth\dto\AuthResponse.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\auth\dto\GoogleLoginRequest.java
 D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\common\ApiResponse.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\common\ErrorResponse.java
 D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\config\SecurityConfig.java
 D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\InvoiceOcrApplication.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\security\JwtAuthenticationFilter.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\security\JwtService.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\user\Role.java
+D:\Java Project\OCR Invoice\backend\src\main\java\com\invoiceocr\user\UserProfile.java
