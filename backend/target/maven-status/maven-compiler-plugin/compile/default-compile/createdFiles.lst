@@ -1,0 +1,4 @@
+com\invoiceocr\auth\AuthController.class
+com\invoiceocr\InvoiceOcrApplication.class
+com\invoiceocr\common\ApiResponse.class
+com\invoiceocr\config\SecurityConfig.class
