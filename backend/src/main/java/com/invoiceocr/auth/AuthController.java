@@ -4,6 +4,8 @@ import com.invoiceocr.auth.dto.*;
 import com.invoiceocr.common.ApiResponse;
 import com.invoiceocr.user.Role;
 import com.invoiceocr.user.UserProfile;
+import com.invoiceocr.user.entity.UserEntity;
+import com.invoiceocr.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,9 +17,11 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
+    private final UserRepository userRepository;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UserRepository userRepository) {
         this.authService = authService;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/register")
@@ -42,8 +46,15 @@ public class AuthController {
             throw new IllegalArgumentException("Unauthorized");
         }
         String email = String.valueOf(authentication.getPrincipal());
-        String role = authentication.getAuthorities().stream().findFirst().map(a -> a.getAuthority().replace("ROLE_", "")).orElse("STAFF");
-        return ApiResponse.ok("OK", new UserProfile(email, "Authenticated User", Role.valueOf(role)));
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return ApiResponse.ok("OK", new UserProfile(
+                user.getEmail(),
+                user.getFullName(),
+                Role.valueOf(user.getRole().getCode().name()),
+                user.getId(),
+                user.getStatus()
+        ));
     }
 
     @PostMapping("/logout")

@@ -1,12 +1,7 @@
-import { useEffect, useState } from 'react'
-import { authApi } from '../api/authApi'
+import { useOutletContext } from 'react-router-dom'
 
 function DashboardPage() {
-  const [profile, setProfile] = useState(null)
-
-  useEffect(() => {
-    authApi.me().then((res) => setProfile(res.data)).catch(() => setProfile(null))
-  }, [])
+  const { profile } = useOutletContext()
 
   return (
     <main className="page-shell">
