@@ -51,7 +51,7 @@ function LoginPage() {
               <label>
                 <span>Họ và tên</span>
                 <input
-                  placeholder="Nguyen Van A"
+                  placeholder="Nguyễn Văn A"
                   value={form.fullName}
                   onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                 />
@@ -89,7 +89,7 @@ function LoginPage() {
 
             <div className="auth-google-native">
               <GoogleLogin
-                width="100%"
+                width="420"
                 text="continue_with"
                 shape="rectangular"
                 onSuccess={async (credentialResponse) => {

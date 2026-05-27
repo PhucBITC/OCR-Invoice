@@ -1,0 +1,22 @@
+# Maven
+**/target/
+*.class
+
+# Node / Frontend
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.suo
+*.sln
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
