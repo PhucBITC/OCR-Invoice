@@ -1,18 +1,13 @@
 package com.invoiceocr.auth;
 
-import com.invoiceocr.auth.dto.AuthResponse;
-import com.invoiceocr.auth.dto.GoogleLoginRequest;
+import com.invoiceocr.auth.dto.*;
 import com.invoiceocr.common.ApiResponse;
 import com.invoiceocr.user.Role;
 import com.invoiceocr.user.UserProfile;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -23,6 +18,16 @@ public class AuthController {
 
     public AuthController(AuthService authService) {
         this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ApiResponse.ok("Register successful", authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody LocalLoginRequest request) {
+        return ApiResponse.ok("Login successful", authService.loginLocal(request));
     }
 
     @PostMapping("/google")

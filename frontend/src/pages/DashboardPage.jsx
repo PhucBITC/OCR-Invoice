@@ -14,17 +14,17 @@ function DashboardPage() {
         <div className="topbar">
           <div>
             <p className="brand-kicker" style={{ marginBottom: 4 }}>Dashboard</p>
-            <h1 className="page-title" style={{ fontSize: 30 }}>Tong quan he thong OCR</h1>
+            <h1 className="page-title" style={{ fontSize: 30 }}>Tổng quan hệ thống OCR</h1>
           </div>
           <span className="badge">GD2 - Auth Ready</span>
         </div>
 
-        <p className="page-subtitle">Trang nay se duoc mo rong cards thong ke, chart va KPI o GD7.</p>
+        <p className="page-subtitle">Trang này sẽ được mở rộng thẻ thống kê, biểu đồ và KPI ở GD7.</p>
 
         {profile ? (
           <pre className="codebox">{JSON.stringify(profile, null, 2)}</pre>
         ) : (
-          <p className="muted" style={{ marginTop: 12 }}>Dang tai thong tin nguoi dung...</p>
+          <p className="muted" style={{ marginTop: 12 }}>Đang tải thông tin người dùng...</p>
         )}
       </section>
     </main>
