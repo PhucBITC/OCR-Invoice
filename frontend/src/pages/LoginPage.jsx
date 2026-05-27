@@ -1,36 +1,43 @@
-import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { GoogleLogin } from '@react-oauth/google'
 import { authApi } from '../api/authApi'
 
 function LoginPage() {
-  const [tokenInput, setTokenInput] = useState('dev-google-token')
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
-  const handleLogin = async () => {
-    setError('')
-    try {
-      const res = await authApi.googleLogin(tokenInput)
-      localStorage.setItem('accessToken', res.data.accessToken)
-      navigate('/dashboard')
-    } catch (e) {
-      setError(e.message)
-    }
+  const completeLogin = async (token) => {
+    const res = await authApi.googleLogin(token)
+    localStorage.setItem('accessToken', res.data.accessToken)
+    navigate('/dashboard')
   }
 
   return (
-    <main style={{ padding: '2rem', fontFamily: 'Segoe UI, sans-serif' }}>
-      <h1>Invoice OCR - Login</h1>
-      <p>GD2: login thong qua /api/auth/google (dev token mode).</p>
-      <input
-        value={tokenInput}
-        onChange={(e) => setTokenInput(e.target.value)}
-        placeholder="Google token"
-        style={{ width: '360px', marginRight: '8px' }}
-      />
-      <button onClick={handleLogin}>Login</button>
-      {error ? <p style={{ color: 'crimson' }}>{error}</p> : null}
-      <p><Link to="/dashboard">Go dashboard</Link></p>
+    <main className="page-shell">
+      <section className="card">
+        <p className="brand-kicker">Invoice OCR Platform</p>
+        <h1 className="page-title">Dang nhap he thong</h1>
+        <p className="page-subtitle">Su dung Google SSO cho nhan vien va quan tri vien.</p>
+
+        <div className="section">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              setError('')
+              try {
+                if (!credentialResponse.credential) {
+                  throw new Error('Google credential is missing')
+                }
+                await completeLogin(credentialResponse.credential)
+              } catch (e) {
+                setError(e.message)
+              }
+            }}
+            onError={() => setError('Google login failed')}
+          />
+          {error ? <p className="error">{error}</p> : null}
+        </div>
+      </section>
     </main>
   )
 }
