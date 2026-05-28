@@ -131,40 +131,25 @@ function SystemAuditLogsPage() {
       {error && <p className="auth-error" style={{ marginBottom: 16 }}>{error}</p>}
 
       {/* Filter Card */}
-      <div className="table-card" style={{ padding: '20px 24px', marginBottom: 24, borderRadius: 12 }}>
-        <form onSubmit={handleSearchSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, alignItems: 'end' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--ink)' }}>Tìm theo Email</label>
+      <div className="filter-card">
+        <form onSubmit={handleSearchSubmit} className="filter-grid">
+          <div className="filter-field">
+            <label className="filter-label">Tìm theo Email</label>
             <input
               type="text"
               placeholder="nhap.email@invoice.com"
               value={performedByEmail}
               onChange={(e) => setPerformedByEmail(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--ink)'
-              }}
+              className="filter-input"
             />
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--ink)' }}>Hành động</label>
+          <div className="filter-field">
+            <label className="filter-label">Hành động</label>
             <select
               value={action}
               onChange={(e) => { setAction(e.target.value); setPage(0); }}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--ink)',
-                fontSize: 14
-              }}
+              className="filter-select"
             >
               <option value="">Tất cả hành động</option>
               <option value="OCR_EDIT">Sửa bản nháp OCR</option>
@@ -173,37 +158,23 @@ function SystemAuditLogsPage() {
             </select>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--ink)' }}>Từ ngày</label>
+          <div className="filter-field">
+            <label className="filter-label">Từ ngày</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--ink)'
-              }}
+              className="filter-input"
             />
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--ink)' }}>Đến ngày</label>
+          <div className="filter-field">
+            <label className="filter-label">Đến ngày</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--ink)'
-              }}
+              className="filter-input"
             />
           </div>
 
