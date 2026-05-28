@@ -21,6 +21,17 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.invoiceocr.document.dto.OcrItemDto;
+import com.invoiceocr.document.dto.OcrResult;
+import com.invoiceocr.document.entity.OcrItemEntity;
+import com.invoiceocr.document.entity.OcrResultEntity;
+import com.invoiceocr.document.ocr.OcrProvider;
+import com.invoiceocr.document.repository.OcrItemRepository;
+import com.invoiceocr.document.repository.OcrResultRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -34,6 +45,13 @@ public class DocumentServiceImpl implements DocumentService {
     private final CompanyRepository companyRepository;
     private final DocumentTypeRepository documentTypeRepository;
     private final UserRepository userRepository;
+    private final OcrProvider ocrProvider;
+    private final OcrResultRepository ocrResultRepository;
+    private final OcrItemRepository ocrItemRepository;
+
+    @Autowired
+    @Lazy
+    private DocumentService self;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -44,12 +62,18 @@ public class DocumentServiceImpl implements DocumentService {
             DocumentRepository documentRepository,
             CompanyRepository companyRepository,
             DocumentTypeRepository documentTypeRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            OcrProvider ocrProvider,
+            OcrResultRepository ocrResultRepository,
+            OcrItemRepository ocrItemRepository
     ) {
         this.documentRepository = documentRepository;
         this.companyRepository = companyRepository;
         this.documentTypeRepository = documentTypeRepository;
         this.userRepository = userRepository;
+        this.ocrProvider = ocrProvider;
+        this.ocrResultRepository = ocrResultRepository;
+        this.ocrItemRepository = ocrItemRepository;
     }
 
     @PostConstruct
@@ -121,6 +145,9 @@ public class DocumentServiceImpl implements DocumentService {
         doc.setUploadedBy(user);
 
         documentRepository.save(doc);
+
+        // Kích hoạt xử lý OCR bất đồng bộ
+        self.triggerOcrAsync(doc.getId());
 
         return mapToResponse(doc);
     }
@@ -194,6 +221,110 @@ public class DocumentServiceImpl implements DocumentService {
                 doc.getUploadedBy() != null ? doc.getUploadedBy().getFullName() : null,
                 doc.getCreatedAt(),
                 doc.getUpdatedAt()
+        );
+    }
+
+    @Override
+    @Async
+    @Transactional
+    public void triggerOcrAsync(Long documentId) {
+        DocumentEntity doc = documentRepository.findById(documentId).orElse(null);
+        if (doc == null) {
+            return;
+        }
+
+        // 1. Chuyển trạng thái tài liệu thành ĐANG QUÉT (OCR_PROCESSING)
+        doc.setStatus("OCR_PROCESSING");
+        documentRepository.save(doc);
+
+        try {
+            // 2. Giả lập thời gian quét của AI (3 giây)
+            Thread.sleep(3000);
+
+            // 3. Thực hiện quét tệp tin
+            OcrResult ocrResult = ocrProvider.performOcr(doc.getFilePath(), doc.getFileType());
+
+            // 4. Xóa kết quả OCR cũ nếu có (để tránh lỗi Unique constraint hoặc duplicate khi quét thủ công lại)
+            OcrResultEntity existingResult = ocrResultRepository.findByDocumentId(documentId).orElse(null);
+            if (existingResult != null) {
+                List<OcrItemEntity> existingItems = ocrItemRepository.findByOcrResultId(existingResult.getId());
+                ocrItemRepository.deleteAll(existingItems);
+                ocrResultRepository.delete(existingResult);
+                ocrResultRepository.flush();
+            }
+
+            // 5. Lưu kết quả quét vào bảng ocr_results
+            OcrResultEntity ocrResultEntity = new OcrResultEntity();
+            ocrResultEntity.setDocument(doc);
+            ocrResultEntity.setInvoiceNumber(ocrResult.invoiceNumber());
+            ocrResultEntity.setInvoiceDate(ocrResult.invoiceDate());
+            ocrResultEntity.setSellerName(ocrResult.sellerName());
+            ocrResultEntity.setSellerTaxCode(ocrResult.sellerTaxCode());
+            ocrResultEntity.setBuyerName(ocrResult.buyerName());
+            ocrResultEntity.setBuyerTaxCode(ocrResult.buyerTaxCode());
+            ocrResultEntity.setSubtotal(ocrResult.subtotal());
+            ocrResultEntity.setVatAmount(ocrResult.vatAmount());
+            ocrResultEntity.setTotalAmount(ocrResult.totalAmount());
+            ocrResultEntity.setPaymentMethod(ocrResult.paymentMethod());
+            ocrResultEntity.setConfidence(ocrResult.confidence());
+            ocrResultRepository.save(ocrResultEntity);
+
+            // 6. Lưu danh sách chi tiết mặt hàng vào bảng ocr_items
+            if (ocrResult.items() != null) {
+                for (OcrItemDto itemDto : ocrResult.items()) {
+                    OcrItemEntity itemEntity = new OcrItemEntity();
+                    itemEntity.setOcrResult(ocrResultEntity);
+                    itemEntity.setDescription(itemDto.description());
+                    itemEntity.setQuantity(itemDto.quantity());
+                    itemEntity.setUnitPrice(itemDto.unitPrice());
+                    itemEntity.setAmount(itemDto.amount());
+                    ocrItemRepository.save(itemEntity);
+                }
+            }
+
+            // 7. Chuyển trạng thái sang CẦN DUYỆT (NEED_REVIEW)
+            doc.setStatus("NEED_REVIEW");
+            documentRepository.save(doc);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            doc.setStatus("ERROR");
+            documentRepository.save(doc);
+        } catch (Exception e) {
+            doc.setStatus("ERROR");
+            documentRepository.save(doc);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OcrResult getOcrResult(Long documentId) {
+        OcrResultEntity ocrResultEntity = ocrResultRepository.findByDocumentId(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy kết quả OCR cho tài liệu này"));
+
+        List<OcrItemEntity> itemEntities = ocrItemRepository.findByOcrResultId(ocrResultEntity.getId());
+        List<OcrItemDto> itemDtos = itemEntities.stream()
+                .map(item -> new OcrItemDto(
+                        item.getDescription(),
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getAmount()
+                ))
+                .toList();
+
+        return new OcrResult(
+                ocrResultEntity.getInvoiceNumber(),
+                ocrResultEntity.getInvoiceDate(),
+                ocrResultEntity.getSellerName(),
+                ocrResultEntity.getSellerTaxCode(),
+                ocrResultEntity.getBuyerName(),
+                ocrResultEntity.getBuyerTaxCode(),
+                ocrResultEntity.getSubtotal(),
+                ocrResultEntity.getVatAmount(),
+                ocrResultEntity.getTotalAmount(),
+                ocrResultEntity.getPaymentMethod(),
+                ocrResultEntity.getConfidence(),
+                itemDtos
         );
     }
 }

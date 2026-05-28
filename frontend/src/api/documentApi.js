@@ -15,4 +15,6 @@ export const documentApi = {
     const token = localStorage.getItem('accessToken')
     return `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/documents/${id}/file?token=${token}`
   },
+  triggerOcr: (id) => axiosClient.post(`/documents/${id}/ocr`),
+  getOcrResult: (id) => axiosClient.get(`/documents/${id}/ocr-result`),
 }

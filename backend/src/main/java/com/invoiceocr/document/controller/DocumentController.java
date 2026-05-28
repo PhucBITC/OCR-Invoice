@@ -2,6 +2,7 @@ package com.invoiceocr.document.controller;
 
 import com.invoiceocr.common.ApiResponse;
 import com.invoiceocr.document.dto.DocumentResponse;
+import com.invoiceocr.document.dto.OcrResult;
 import com.invoiceocr.document.service.DocumentService;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
@@ -64,5 +65,17 @@ public class DocumentController {
                 .header(HttpHeaders.CONTENT_TYPE, doc.fileType())
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.fileName() + "\"")
                 .body(file);
+    }
+
+    @PostMapping("/{id}/ocr")
+    public ApiResponse<String> triggerOcr(@PathVariable Long id) {
+        documentService.triggerOcrAsync(id);
+        return ApiResponse.ok("Đã kích hoạt quét OCR cho tài liệu thành công", null);
+    }
+
+    @GetMapping("/{id}/ocr-result")
+    public ApiResponse<OcrResult> getOcrResult(@PathVariable Long id) {
+        OcrResult response = documentService.getOcrResult(id);
+        return ApiResponse.ok("Success", response);
     }
 }

@@ -64,6 +64,54 @@ function DocumentListPage() {
     }
   }
 
+  const fetchDocumentsSilently = async () => {
+    try {
+      const params = {
+        page,
+        size,
+        status: status || undefined,
+        companyId: companyId || undefined,
+        documentTypeId: documentTypeId || undefined,
+        search: search ? search.trim() : undefined,
+      }
+      const res = await documentApi.getAll(params)
+      setDocuments(res.data.content || [])
+      setTotalPages(res.data.totalPages || 0)
+      setTotalElements(res.data.totalElements || 0)
+    } catch (err) {
+      console.error('Silent fetch failed', err)
+    }
+  }
+
+  // Tự động kiểm tra trạng thái khi tài liệu đang xử lý
+  useEffect(() => {
+    const hasProcessing = documents.some(
+      (doc) => doc.status === 'UPLOADED' || doc.status === 'OCR_PROCESSING'
+    )
+    if (!hasProcessing) return
+
+    const interval = setInterval(() => {
+      fetchDocumentsSilently()
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [documents, page, status, companyId, documentTypeId, search])
+
+  const handleTriggerOcr = async (id) => {
+    try {
+      setError('')
+      await documentApi.triggerOcr(id)
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === id ? { ...doc, status: 'OCR_PROCESSING' } : doc
+        )
+      )
+    } catch (err) {
+      console.error('Failed to trigger OCR manually', err)
+      setError('Không thể kích hoạt quét OCR: ' + (err.message || 'Lỗi hệ thống'))
+    }
+  }
+
   const handleSearchSubmit = (e) => {
     e.preventDefault()
     setPage(0)
@@ -106,6 +154,8 @@ function DocumentListPage() {
         return <span className="status-badge status-active">Đã xác thực</span>
       case 'REJECTED':
         return <span className="status-badge status-inactive">Từ chối</span>
+      case 'ERROR':
+        return <span className="status-badge" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}>Lỗi quét OCR</span>
       default:
         return <span className="status-badge">{statusStr}</span>
     }
@@ -227,8 +277,20 @@ function DocumentListPage() {
                     <td>{doc.uploadedByFullName}</td>
                     <td>{formatDate(doc.createdAt)}</td>
                     <td>{getStatusBadge(doc.status)}</td>
-                    <td style={{ textAlign: 'right' }}>
+                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 8 }}>
+                        {(doc.status === 'NEED_REVIEW' || doc.status === 'ERROR' || doc.status === 'REJECTED') && (
+                          <button
+                            onClick={() => handleTriggerOcr(doc.id)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                            </svg>
+                            <span>Quét lại</span>
+                          </button>
+                        )}
                         <a
                           href={documentApi.getFileUrl(doc.id)}
                           target="_blank"
