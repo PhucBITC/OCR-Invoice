@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, Link } from 'react-router-dom'
 import { documentApi } from '../api/documentApi'
 
 function SystemAuditLogsPage() {
@@ -262,9 +262,9 @@ function SystemAuditLogsPage() {
                       </span>
                     </td>
                     <td>
-                      <a href={`/documents/${log.documentId}/review`} style={{ color: 'var(--blue)', fontWeight: 600, textDecoration: 'none' }}>
+                      <Link to={`/documents/${log.documentId}/review`} style={{ color: 'var(--blue)', fontWeight: 600, textDecoration: 'none' }}>
                         #{log.documentId}
-                      </a>
+                      </Link>
                     </td>
                     <td style={{ fontSize: '13px', color: 'var(--ink-dark)' }}>
                       {log.details || '-'}

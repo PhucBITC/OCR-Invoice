@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { documentApi } from '../api/documentApi'
 
 function VerifiedInvoicesPage() {
@@ -332,8 +333,8 @@ function VerifiedInvoicesPage() {
                               <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                           </button>
-                          <a
-                            href={`/documents/${inv.documentId}/review`}
+                          <Link
+                            to={`/documents/${inv.documentId}/review`}
                             className="btn btn-secondary btn-sm"
                             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                             title="Xem lại tệp gốc"
@@ -342,7 +343,7 @@ function VerifiedInvoicesPage() {
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                               <circle cx="12" cy="12" r="3"></circle>
                             </svg>
-                          </a>
+                          </Link>
                         </div>
                       </td>
                     </tr>
