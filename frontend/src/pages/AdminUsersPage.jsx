@@ -20,8 +20,12 @@ function AdminUsersPage() {
 
   if (!isAdmin) {
     return (
-      <div className="page-container" style={{ textAlign: 'center', padding: '80px 20px' }}>
-        <h1 style={{ fontSize: 48, marginBottom: 12 }}>⚠️</h1>
+      <div className="page-container" style={{ textAlign: 'center', padding: '80px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}>
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
         <h2>Không có quyền truy cập</h2>
         <p className="muted" style={{ marginTop: 8 }}>Trang này chỉ dành cho quản trị viên hệ thống.</p>
       </div>
@@ -74,7 +78,6 @@ function AdminUsersPage() {
     <div className="page-container">
       <div className="topbar" style={{ marginBottom: 24 }}>
         <div>
-          <p className="brand-kicker" style={{ marginBottom: 4 }}>Quản trị hệ thống</p>
           <h1 className="page-title">Quản lý Người dùng</h1>
         </div>
       </div>
@@ -141,8 +144,25 @@ function AdminUsersPage() {
                       className={`btn btn-sm ${user.status === 'ACTIVE' ? 'btn-secondary' : 'btn-primary'}`}
                       disabled={updatingId === user.id}
                       onClick={() => handleStatusToggle(user.id, user.status)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      {user.status === 'ACTIVE' ? '🔒 Khóa tài khoản' : '🔑 Mở khóa'}
+                      {user.status === 'ACTIVE' ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                          </svg>
+                          <span>Khóa tài khoản</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                          </svg>
+                          <span>Mở khóa</span>
+                        </>
+                      )}
                     </button>
                   </td>
                 </tr>
