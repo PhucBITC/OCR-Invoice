@@ -4,6 +4,8 @@ import LoginPage from '../pages/LoginPage'
 import DashboardPage from '../pages/DashboardPage'
 import CompaniesPage from '../pages/CompaniesPage'
 import AdminUsersPage from '../pages/AdminUsersPage'
+import UploadDocumentPage from '../pages/UploadDocumentPage'
+import DocumentListPage from '../pages/DocumentListPage'
 
 function AppRoutes() {
   return (
@@ -11,6 +13,8 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/upload" element={<UploadDocumentPage />} />
+        <Route path="/documents" element={<DocumentListPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>
