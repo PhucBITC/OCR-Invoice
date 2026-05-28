@@ -5,6 +5,8 @@ import com.invoiceocr.document.dto.DocumentResponse;
 import com.invoiceocr.document.dto.OcrResult;
 import com.invoiceocr.document.dto.RejectRequest;
 import com.invoiceocr.document.dto.AuditLogResponse;
+import com.invoiceocr.document.dto.InvoiceHeaderResponse;
+import com.invoiceocr.document.dto.InvoiceItemResponse;
 import com.invoiceocr.document.service.DocumentService;
 import java.util.List;
 import org.springframework.core.io.Resource;
@@ -127,6 +129,39 @@ public class DocumentController {
     @GetMapping("/{id}/audit-logs")
     public ApiResponse<List<AuditLogResponse>> getAuditLogs(@PathVariable Long id) {
         List<AuditLogResponse> response = documentService.getAuditLogs(id);
+        return ApiResponse.ok("Success", response);
+    }
+
+    @GetMapping("/verified-invoices")
+    public ApiResponse<Page<InvoiceHeaderResponse>> getVerifiedInvoices(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "invoiceNumber", required = false) String invoiceNumber,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate,
+            @RequestParam(value = "minAmount", required = false) Double minAmount,
+            @RequestParam(value = "maxAmount", required = false) Double maxAmount
+    ) {
+        Page<InvoiceHeaderResponse> response = documentService.getVerifiedInvoices(page, size, invoiceNumber, startDate, endDate, minAmount, maxAmount);
+        return ApiResponse.ok("Success", response);
+    }
+
+    @GetMapping("/system-audit-logs")
+    public ApiResponse<Page<AuditLogResponse>> getSystemAuditLogs(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "action", required = false) String action,
+            @RequestParam(value = "performedByEmail", required = false) String performedByEmail,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate
+    ) {
+        Page<AuditLogResponse> response = documentService.getSystemAuditLogs(page, size, action, performedByEmail, startDate, endDate);
+        return ApiResponse.ok("Success", response);
+    }
+
+    @GetMapping("/verified-invoices/{id}/items")
+    public ApiResponse<List<InvoiceItemResponse>> getVerifiedInvoiceItems(@PathVariable Long id) {
+        List<InvoiceItemResponse> response = documentService.getVerifiedInvoiceItems(id);
         return ApiResponse.ok("Success", response);
     }
 }

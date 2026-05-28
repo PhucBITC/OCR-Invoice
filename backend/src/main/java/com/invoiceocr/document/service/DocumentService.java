@@ -3,6 +3,8 @@ package com.invoiceocr.document.service;
 import com.invoiceocr.document.dto.DocumentResponse;
 import com.invoiceocr.document.dto.OcrResult;
 import com.invoiceocr.document.dto.AuditLogResponse;
+import com.invoiceocr.document.dto.InvoiceHeaderResponse;
+import com.invoiceocr.document.dto.InvoiceItemResponse;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,4 +21,7 @@ public interface DocumentService {
     void verifyDocument(Long documentId, OcrResult finalData, String username);
     void rejectDocument(Long documentId, String reason, String username);
     List<AuditLogResponse> getAuditLogs(Long documentId);
+    Page<InvoiceHeaderResponse> getVerifiedInvoices(int page, int size, String invoiceNumber, String startDate, String endDate, Double minAmount, Double maxAmount);
+    Page<AuditLogResponse> getSystemAuditLogs(int page, int size, String action, String performedByEmail, String startDate, String endDate);
+    List<InvoiceItemResponse> getVerifiedInvoiceItems(Long invoiceHeaderId);
 }

@@ -7,6 +7,8 @@ import AdminUsersPage from '../pages/AdminUsersPage'
 import UploadDocumentPage from '../pages/UploadDocumentPage'
 import DocumentListPage from '../pages/DocumentListPage'
 import DocumentReviewPage from '../pages/DocumentReviewPage'
+import VerifiedInvoicesPage from '../pages/VerifiedInvoicesPage'
+import SystemAuditLogsPage from '../pages/SystemAuditLogsPage'
 
 function AppRoutes() {
   return (
@@ -17,6 +19,8 @@ function AppRoutes() {
         <Route path="/upload" element={<UploadDocumentPage />} />
         <Route path="/documents" element={<DocumentListPage />} />
         <Route path="/documents/:id/review" element={<DocumentReviewPage />} />
+        <Route path="/verified-invoices" element={<VerifiedInvoicesPage />} />
+        <Route path="/audit-logs" element={<SystemAuditLogsPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>

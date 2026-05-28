@@ -29,6 +29,8 @@ import com.invoiceocr.document.ocr.OcrProvider;
 import com.invoiceocr.document.repository.OcrItemRepository;
 import com.invoiceocr.document.repository.OcrResultRepository;
 import com.invoiceocr.document.dto.AuditLogResponse;
+import com.invoiceocr.document.dto.InvoiceHeaderResponse;
+import com.invoiceocr.document.dto.InvoiceItemResponse;
 import com.invoiceocr.document.entity.InvoiceHeaderEntity;
 import com.invoiceocr.document.entity.InvoiceItemEntity;
 import com.invoiceocr.document.entity.AuditLogEntity;
@@ -534,6 +536,129 @@ public class DocumentServiceImpl implements DocumentService {
                         l.getPerformedByName(),
                         l.getPerformedAt(),
                         l.getDetails()
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<InvoiceHeaderResponse> getVerifiedInvoices(int page, int size, String invoiceNumber, String startDate, String endDate, Double minAmount, Double maxAmount) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("verifiedAt").descending());
+
+        Specification<InvoiceHeaderEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("invoiceNumber")), "%" + invoiceNumber.trim().toLowerCase() + "%"));
+            }
+
+            if (startDate != null && !startDate.isBlank()) {
+                try {
+                    java.time.LocalDate startLocalDate = java.time.LocalDate.parse(startDate.trim());
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("verifiedAt"), startLocalDate.atStartOfDay()));
+                } catch (Exception e) {
+                    // Ignore parsing exceptions
+                }
+            }
+
+            if (endDate != null && !endDate.isBlank()) {
+                try {
+                    java.time.LocalDate endLocalDate = java.time.LocalDate.parse(endDate.trim());
+                    predicates.add(cb.lessThanOrEqualTo(root.get("verifiedAt"), endLocalDate.atTime(23, 59, 59, 999999999)));
+                } catch (Exception e) {
+                    // Ignore parsing exceptions
+                }
+            }
+
+            if (minAmount != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("totalAmount"), minAmount));
+            }
+
+            if (maxAmount != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("totalAmount"), maxAmount));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return invoiceHeaderRepository.findAll(spec, pageRequest).map(h -> new InvoiceHeaderResponse(
+                h.getId(),
+                h.getDocument().getId(),
+                h.getInvoiceNumber(),
+                h.getInvoiceDate(),
+                h.getSellerName(),
+                h.getSellerTaxCode(),
+                h.getBuyerName(),
+                h.getBuyerTaxCode(),
+                h.getSubtotal(),
+                h.getVatAmount(),
+                h.getTotalAmount(),
+                h.getPaymentMethod(),
+                h.getVerifiedBy() != null ? h.getVerifiedBy().getId() : null,
+                h.getVerifiedBy() != null ? h.getVerifiedBy().getEmail() : null,
+                h.getVerifiedBy() != null ? h.getVerifiedBy().getFullName() : null,
+                h.getVerifiedAt()
+        ));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AuditLogResponse> getSystemAuditLogs(int page, int size, String action, String performedByEmail, String startDate, String endDate) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("performedAt").descending());
+
+        Specification<AuditLogEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (action != null && !action.isBlank()) {
+                predicates.add(cb.equal(root.get("action"), action));
+            }
+
+            if (performedByEmail != null && !performedByEmail.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("performedByEmail")), "%" + performedByEmail.trim().toLowerCase() + "%"));
+            }
+
+            if (startDate != null && !startDate.isBlank()) {
+                try {
+                    java.time.LocalDate startLocalDate = java.time.LocalDate.parse(startDate.trim());
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("performedAt"), startLocalDate.atStartOfDay()));
+                } catch (Exception e) {
+                    // Ignore parsing exceptions
+                }
+            }
+
+            if (endDate != null && !endDate.isBlank()) {
+                try {
+                    java.time.LocalDate endLocalDate = java.time.LocalDate.parse(endDate.trim());
+                    predicates.add(cb.lessThanOrEqualTo(root.get("performedAt"), endLocalDate.atTime(23, 59, 59, 999999999)));
+                } catch (Exception e) {
+                    // Ignore parsing exceptions
+                }
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return auditLogRepository.findAll(spec, pageRequest).map(l -> new AuditLogResponse(
+                l.getId(),
+                l.getDocumentId(),
+                l.getAction(),
+                l.getPerformedByEmail(),
+                l.getPerformedByName(),
+                l.getPerformedAt(),
+                l.getDetails()
+        ));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceItemResponse> getVerifiedInvoiceItems(Long invoiceHeaderId) {
+        List<InvoiceItemEntity> items = invoiceItemRepository.findByInvoiceHeaderId(invoiceHeaderId);
+        return items.stream()
+                .map(item -> new InvoiceItemResponse(
+                        item.getDescription(),
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getAmount()
                 ))
                 .toList();
     }

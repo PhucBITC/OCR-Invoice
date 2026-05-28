@@ -21,4 +21,7 @@ export const documentApi = {
   verify: (id, ocrData) => axiosClient.post(`/documents/${id}/verify`, ocrData),
   reject: (id, reason) => axiosClient.post(`/documents/${id}/reject`, { reason }),
   getAuditLogs: (id) => axiosClient.get(`/documents/${id}/audit-logs`),
+  getVerifiedInvoices: (params) => axiosClient.get('/documents/verified-invoices', { params }),
+  getVerifiedInvoiceItems: (id) => axiosClient.get(`/documents/verified-invoices/${id}/items`),
+  getSystemAuditLogs: (params) => axiosClient.get('/documents/system-audit-logs', { params }),
 }
