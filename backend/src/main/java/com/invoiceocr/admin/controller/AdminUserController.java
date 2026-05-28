@@ -46,6 +46,14 @@ public class AdminUserController {
             throw new IllegalArgumentException("Role is required");
         }
 
+        String currentEmail = String.valueOf(SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+        UserEntity currentUser = userRepository.findByEmailIgnoreCase(currentEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Current user not found"));
+
+        if (currentUser.getId().equals(id)) {
+            throw new IllegalArgumentException("Bạn không thể tự thay đổi quyền của chính mình.");
+        }
+
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -70,6 +78,14 @@ public class AdminUserController {
         String statusStr = body.get("status");
         if (statusStr == null || statusStr.isBlank()) {
             throw new IllegalArgumentException("Status is required");
+        }
+
+        String currentEmail = String.valueOf(SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+        UserEntity currentUser = userRepository.findByEmailIgnoreCase(currentEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Current user not found"));
+
+        if (currentUser.getId().equals(id)) {
+            throw new IllegalArgumentException("Bạn không thể tự khóa tài khoản của chính mình.");
         }
 
         UserEntity user = userRepository.findById(id)

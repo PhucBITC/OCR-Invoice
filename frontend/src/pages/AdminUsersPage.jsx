@@ -124,7 +124,7 @@ function AdminUsersPage() {
                   <td>
                     <select
                       value={user.role}
-                      disabled={updatingId === user.id}
+                      disabled={updatingId === user.id || user.id === profile?.id}
                       onChange={(e) => handleRoleChange(user.id, e.target.value)}
                       style={{ padding: '6px 12px', fontSize: 13, width: 140 }}
                     >
@@ -142,7 +142,7 @@ function AdminUsersPage() {
                   <td style={{ textAlign: 'right' }}>
                     <button
                       className={`btn btn-sm ${user.status === 'ACTIVE' ? 'btn-secondary' : 'btn-primary'}`}
-                      disabled={updatingId === user.id}
+                      disabled={updatingId === user.id || user.id === profile?.id}
                       onClick={() => handleStatusToggle(user.id, user.status)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >

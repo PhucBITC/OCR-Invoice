@@ -16,6 +16,11 @@ function CompaniesPage() {
   const [modalType, setModalType] = useState('add') // 'add' or 'edit'
   const [currentCompanyId, setCurrentCompanyId] = useState(null)
   
+  // Delete Modal States
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [companyToDelete, setCompanyToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   // Form States
   const [form, setForm] = useState({ name: '', taxCode: '', address: '', status: 'ACTIVE' })
   const [formError, setFormError] = useState('')
@@ -75,18 +80,40 @@ function CompaniesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.name || !form.taxCode) {
-      setFormError('Tên công ty và Mã số thuế là bắt buộc.')
+    
+    // 1. Validate Company Name
+    if (!form.name || form.name.trim().length < 2 || form.name.trim().length > 150) {
+      setFormError('Tên công ty bắt buộc và phải từ 2 đến 150 ký tự.')
+      return
+    }
+
+    // 2. Validate Tax Code
+    const taxCodeRegex = /^[a-zA-Z0-9-]+$/
+    if (!form.taxCode || form.taxCode.trim().length < 5 || form.taxCode.trim().length > 20 || !taxCodeRegex.test(form.taxCode.trim())) {
+      setFormError('Mã số thuế bắt buộc từ 5 đến 20 ký tự, chỉ chứa chữ cái, số và dấu gạch ngang (-).')
+      return
+    }
+
+    // 3. Validate Address
+    if (form.address && form.address.trim().length > 255) {
+      setFormError('Địa chỉ không được vượt quá 255 ký tự.')
       return
     }
 
     setSubmitting(true)
     setFormError('')
     try {
+      const payload = {
+        name: form.name.trim(),
+        taxCode: form.taxCode.trim(),
+        address: form.address ? form.address.trim() : null,
+        status: form.status
+      }
+
       if (modalType === 'add') {
-        await companyApi.create(form)
+        await companyApi.create(payload)
       } else {
-        await companyApi.update(currentCompanyId, form)
+        await companyApi.update(currentCompanyId, payload)
       }
       setModalOpen(false)
       fetchCompanies()
@@ -97,14 +124,23 @@ function CompaniesPage() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa công ty này?')) return
+  const handleRequestDelete = (company) => {
+    setCompanyToDelete(company)
+    setDeleteConfirmOpen(true)
+  }
 
+  const handleConfirmDelete = async () => {
+    if (!companyToDelete) return
+    setDeleting(true)
     try {
-      await companyApi.delete(id)
+      await companyApi.delete(companyToDelete.id)
+      setDeleteConfirmOpen(false)
+      setCompanyToDelete(null)
       fetchCompanies()
     } catch (err) {
       alert(err.message || 'Không thể xóa công ty.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -191,7 +227,7 @@ function CompaniesPage() {
                         </svg>
                         <span>Sửa</span>
                       </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(company.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleRequestDelete(company)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6"></polyline>
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -275,6 +311,38 @@ function CompaniesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>Xác nhận xóa</span>
+              </h2>
+              <button className="modal-close" onClick={() => setDeleteConfirmOpen(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 24px' }}>
+              <p style={{ margin: 0, fontSize: 15, color: 'var(--ink)', lineHeight: 1.4 }}>
+                Bạn có chắc chắn muốn xóa công ty <strong>{companyToDelete?.name}</strong>? Hành động này sẽ thực hiện ẩn công ty khỏi danh sách hoạt động.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ padding: '12px 24px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
+                Hủy bỏ
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handleConfirmDelete} disabled={deleting}>
+                {deleting ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </button>
+            </div>
           </div>
         </div>
       )}
