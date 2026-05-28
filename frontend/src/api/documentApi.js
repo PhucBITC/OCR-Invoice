@@ -17,4 +17,8 @@ export const documentApi = {
   },
   triggerOcr: (id) => axiosClient.post(`/documents/${id}/ocr`),
   getOcrResult: (id) => axiosClient.get(`/documents/${id}/ocr-result`),
+  saveDraft: (id, ocrData) => axiosClient.put(`/documents/${id}/ocr-result`, ocrData),
+  verify: (id, ocrData) => axiosClient.post(`/documents/${id}/verify`, ocrData),
+  reject: (id, reason) => axiosClient.post(`/documents/${id}/reject`, { reason }),
+  getAuditLogs: (id) => axiosClient.get(`/documents/${id}/audit-logs`),
 }

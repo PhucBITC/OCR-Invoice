@@ -3,7 +3,10 @@ package com.invoiceocr.document.controller;
 import com.invoiceocr.common.ApiResponse;
 import com.invoiceocr.document.dto.DocumentResponse;
 import com.invoiceocr.document.dto.OcrResult;
+import com.invoiceocr.document.dto.RejectRequest;
+import com.invoiceocr.document.dto.AuditLogResponse;
 import com.invoiceocr.document.service.DocumentService;
+import java.util.List;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
@@ -76,6 +79,54 @@ public class DocumentController {
     @GetMapping("/{id}/ocr-result")
     public ApiResponse<OcrResult> getOcrResult(@PathVariable Long id) {
         OcrResult response = documentService.getOcrResult(id);
+        return ApiResponse.ok("Success", response);
+    }
+
+    @PutMapping("/{id}/ocr-result")
+    public ApiResponse<String> saveDraft(
+            @PathVariable Long id,
+            @RequestBody OcrResult draftData
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalArgumentException("Unauthorized");
+        }
+        String email = String.valueOf(authentication.getPrincipal());
+        documentService.saveOcrDraft(id, draftData, email);
+        return ApiResponse.ok("Lưu bản nháp thành công", null);
+    }
+
+    @PostMapping("/{id}/verify")
+    public ApiResponse<String> verify(
+            @PathVariable Long id,
+            @RequestBody OcrResult finalData
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalArgumentException("Unauthorized");
+        }
+        String email = String.valueOf(authentication.getPrincipal());
+        documentService.verifyDocument(id, finalData, email);
+        return ApiResponse.ok("Phê duyệt chứng từ thành công", null);
+    }
+
+    @PostMapping("/{id}/reject")
+    public ApiResponse<String> reject(
+            @PathVariable Long id,
+            @RequestBody RejectRequest request
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalArgumentException("Unauthorized");
+        }
+        String email = String.valueOf(authentication.getPrincipal());
+        documentService.rejectDocument(id, request.reason(), email);
+        return ApiResponse.ok("Từ chối chứng từ thành công", null);
+    }
+
+    @GetMapping("/{id}/audit-logs")
+    public ApiResponse<List<AuditLogResponse>> getAuditLogs(@PathVariable Long id) {
+        List<AuditLogResponse> response = documentService.getAuditLogs(id);
         return ApiResponse.ok("Success", response);
     }
 }
