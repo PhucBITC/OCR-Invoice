@@ -132,61 +132,63 @@ function SystemAuditLogsPage() {
 
       {/* Filter Card */}
       <div className="filter-card">
-        <form onSubmit={handleSearchSubmit} className="filter-grid">
-          <div className="filter-field">
-            <label className="filter-label">Tìm theo Email</label>
-            <input
-              type="text"
-              placeholder="nhap.email@invoice.com"
-              value={performedByEmail}
-              onChange={(e) => setPerformedByEmail(e.target.value)}
-              className="filter-input"
-            />
+        <form onSubmit={handleSearchSubmit}>
+          <div className="filter-grid" style={{ marginBottom: 20 }}>
+            <div className="filter-field">
+              <label className="filter-label">Tìm theo Email</label>
+              <input
+                type="text"
+                placeholder="nhap.email@invoice.com"
+                value={performedByEmail}
+                onChange={(e) => setPerformedByEmail(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Hành động</label>
+              <select
+                value={action}
+                onChange={(e) => { setAction(e.target.value); setPage(0); }}
+                className="filter-select"
+              >
+                <option value="">Tất cả hành động</option>
+                <option value="OCR_EDIT">Sửa bản nháp OCR</option>
+                <option value="VERIFIED">Phê duyệt (Verify)</option>
+                <option value="REJECTED">Từ chối (Reject)</option>
+              </select>
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Từ ngày</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Đến ngày</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
+                className="filter-input"
+              />
+            </div>
           </div>
 
-          <div className="filter-field">
-            <label className="filter-label">Hành động</label>
-            <select
-              value={action}
-              onChange={(e) => { setAction(e.target.value); setPage(0); }}
-              className="filter-select"
-            >
-              <option value="">Tất cả hành động</option>
-              <option value="OCR_EDIT">Sửa bản nháp OCR</option>
-              <option value="VERIFIED">Phê duyệt (Verify)</option>
-              <option value="REJECTED">Từ chối (Reject)</option>
-            </select>
-          </div>
-
-          <div className="filter-field">
-            <label className="filter-label">Từ ngày</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
-              className="filter-input"
-            />
-          </div>
-
-          <div className="filter-field">
-            <label className="filter-label">Đến ngày</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
-              className="filter-input"
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" className="btn btn-primary" style={{ flex: 1, height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="submit" className="btn btn-primary" style={{ height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
               Lọc
             </button>
-            <button type="button" className="btn btn-secondary" onClick={handleResetFilters} style={{ height: '42px', padding: '0 16px' }}>
+            <button type="button" className="btn btn-secondary" onClick={handleResetFilters} style={{ height: '42px', padding: '0 20px' }}>
               Xóa lọc
             </button>
           </div>

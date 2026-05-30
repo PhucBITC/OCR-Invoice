@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Navigate, Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../../api/authApi'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import { documentApi } from '../../api/documentApi'
 
 function ProtectedLayout() {
   const token = localStorage.getItem('accessToken')
@@ -9,6 +12,44 @@ function ProtectedLayout() {
   const [loading, setLoading] = useState(true)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const location = useLocation()
+
+  // Notification states
+  const [notifications, setNotifications] = useState([])
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const notifRef = useRef(null)
+
+  // Change password states
+  const [changePwdModalOpen, setChangePwdModalOpen] = useState(false)
+  const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' })
+  const [pwdError, setPwdError] = useState('')
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [showOldPwd, setShowOldPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmNewPwd, setShowConfirmNewPwd] = useState(false)
+
+  useEffect(() => {
+    if (!loading && profile) {
+      const isAdmin = profile.role === 'ADMIN'
+      const canSeeDashboard = isAdmin || profile.role === 'MANAGER'
+
+      // Guard for Dashboard
+      if (location.pathname === '/dashboard' && !canSeeDashboard) {
+        navigate('/documents', { replace: true })
+        toast.error('Bạn không có quyền truy cập Dashboard.')
+        return
+      }
+
+      // Guard for Admin-only pages
+      const adminOnlyPaths = ['/admin/users', '/companies', '/audit-logs']
+      const isTryingAdminPath = adminOnlyPaths.some(p => location.pathname.startsWith(p))
+      if (isTryingAdminPath && !isAdmin) {
+        navigate('/documents', { replace: true })
+        toast.error('Bạn không có quyền truy cập vào chức năng này.')
+      }
+    }
+  }, [loading, profile, location.pathname, navigate])
 
   useEffect(() => {
     if (!token) {
@@ -32,11 +73,114 @@ function ProtectedLayout() {
     fetchProfile()
   }, [token, navigate])
 
-  // Handle click outside to close dropdown
+  // Load notifications from system audit logs
+  const fetchNotifications = async () => {
+    try {
+      const res = await documentApi.getSystemAuditLogs({ page: 0, size: 20 })
+      if (res.data && res.data.content) {
+        const logs = res.data.content
+        
+        // Retrieve read IDs from localStorage
+        const readIds = JSON.parse(localStorage.getItem('readNotificationIds') || '[]')
+        
+        // Filter only relevant actions: OCR_EDIT, VERIFIED, REJECTED
+        const relevantLogs = logs.filter(log => ['OCR_EDIT', 'VERIFIED', 'REJECTED'].includes(log.action))
+        
+        // Determine which ones are unread
+        let unreadLogs = relevantLogs.filter(log => !readIds.includes(log.id))
+        
+        // Auto-read if user is currently viewing the document
+        const match = window.location.pathname.match(/^\/documents\/(\d+)\/review/)
+        if (match) {
+          const docId = parseInt(match[1], 10)
+          const viewingLogs = unreadLogs.filter(n => n.documentId === docId)
+          if (viewingLogs.length > 0) {
+            const newReadIds = [...readIds, ...viewingLogs.map(n => n.id)]
+            localStorage.setItem('readNotificationIds', JSON.stringify(newReadIds))
+            unreadLogs = unreadLogs.filter(n => n.documentId !== docId)
+          }
+        }
+        
+        setNotifications(unreadLogs)
+        setUnreadCount(unreadLogs.length)
+      }
+    } catch (err) {
+      console.warn('Failed to load notifications', err)
+    }
+  }
+
+  useEffect(() => {
+    if (token) {
+      fetchNotifications()
+      
+      // Poll every 10 seconds to look for edits/approvals
+      const interval = setInterval(fetchNotifications, 10000)
+      return () => clearInterval(interval)
+    }
+  }, [token])
+
+  // Auto-read notifications if the user visits the review page for that document
+  useEffect(() => {
+    const match = location.pathname.match(/^\/documents\/(\d+)\/review/)
+    if (match && notifications.length > 0) {
+      const docId = parseInt(match[1], 10)
+      const viewingLogs = notifications.filter(n => n.documentId === docId)
+      if (viewingLogs.length > 0) {
+        const readIds = JSON.parse(localStorage.getItem('readNotificationIds') || '[]')
+        const newReadIds = [...readIds, ...viewingLogs.map(n => n.id)]
+        localStorage.setItem('readNotificationIds', JSON.stringify(newReadIds))
+        
+        // Remove from UI notifications and update count
+        setNotifications(prev => prev.filter(n => n.documentId !== docId))
+        setUnreadCount(prev => Math.max(0, prev - viewingLogs.length))
+      }
+    }
+  }, [location.pathname, notifications])
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setPwdError('')
+    
+    if (!pwdForm.oldPassword) {
+      setPwdError('Vui lòng nhập mật khẩu cũ.')
+      return
+    }
+    if (pwdForm.newPassword.length < 6) {
+      setPwdError('Mật khẩu mới phải có ít nhất 6 ký tự.')
+      return
+    }
+    if (pwdForm.newPassword !== pwdForm.confirmNewPassword) {
+      setPwdError('Mật khẩu mới và xác nhận mật khẩu mới không khớp.')
+      return
+    }
+
+    setPwdLoading(true)
+    try {
+      await authApi.changePassword({
+        oldPassword: pwdForm.oldPassword,
+        newPassword: pwdForm.newPassword
+      })
+      toast.success('Đổi mật khẩu thành công!')
+      setChangePwdModalOpen(false)
+      setPwdForm({ oldPassword: '', newPassword: '', confirmNewPassword: '' })
+      setShowOldPwd(false)
+      setShowNewPwd(false)
+      setShowConfirmNewPwd(false)
+    } catch (err) {
+      setPwdError(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi đổi mật khẩu.')
+    } finally {
+      setPwdLoading(false)
+    }
+  }
+
+  // Handle click outside to close dropdowns
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false)
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setNotifDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -70,6 +214,9 @@ function ProtectedLayout() {
   }
 
   const isAdmin = profile?.role === 'ADMIN'
+  const isStaff = profile?.role === 'STAFF'
+  const canSeeDashboard = profile?.role === 'ADMIN' || profile?.role === 'MANAGER'
+  const canUpload = profile?.role === 'ADMIN' || profile?.role === 'STAFF'
 
   return (
     <div className="app-container">
@@ -102,26 +249,30 @@ function ProtectedLayout() {
         </div>
         
         <nav className="sidebar-menu">
-          <NavLink to="/dashboard" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            {/* Dashboard SVG Icon */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
-              <rect x="3" y="3" width="7" height="9"></rect>
-              <rect x="14" y="3" width="7" height="5"></rect>
-              <rect x="14" y="12" width="7" height="9"></rect>
-              <rect x="3" y="16" width="7" height="5"></rect>
-            </svg>
-            <span>Dashboard</span>
-          </NavLink>
+          {canSeeDashboard && (
+            <NavLink to="/dashboard" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+              {/* Dashboard SVG Icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
+                <rect x="3" y="3" width="7" height="9"></rect>
+                <rect x="14" y="3" width="7" height="5"></rect>
+                <rect x="14" y="12" width="7" height="9"></rect>
+                <rect x="3" y="16" width="7" height="5"></rect>
+              </svg>
+              <span>Dashboard</span>
+            </NavLink>
+          )}
           
-          <NavLink to="/upload" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            {/* Upload SVG Icon */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            <span>Tải chứng từ</span>
-          </NavLink>
+          {canUpload && (
+            <NavLink to="/upload" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+              {/* Upload SVG Icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 2 }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>Tải chứng từ</span>
+            </NavLink>
+          )}
 
           <NavLink to="/documents" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             {/* Documents List SVG Icon */}
@@ -190,13 +341,106 @@ function ProtectedLayout() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             {/* Notification Bell */}
-            <button className="header-action-btn" aria-label="Notifications">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-              <span className="bell-badge"></span>
-            </button>
+            <div className="notification-container" ref={notifRef}>
+              <button 
+                className="header-action-btn" 
+                aria-label="Notifications"
+                onClick={() => {
+                  setNotifDropdownOpen(!notifDropdownOpen)
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
+              </button>
+
+              {notifDropdownOpen && (
+                <div className="notification-dropdown">
+                  <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600 }}>Thông báo hoạt động</span>
+                    {unreadCount > 0 && (
+                      <button 
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--blue)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--gray-hover, #f3f4f6)'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const readIds = JSON.parse(localStorage.getItem('readNotificationIds') || '[]')
+                          const newReadIds = [...readIds, ...notifications.map(n => n.id)]
+                          localStorage.setItem('readNotificationIds', JSON.stringify(newReadIds))
+                          setNotifications([])
+                          setUnreadCount(0)
+                        }}
+                      >
+                        Đọc tất cả
+                      </button>
+                    )}
+                  </div>
+                  <div className="notification-list">
+                    {notifications.map((log) => {
+                      let title = ''
+                      let color = 'var(--blue)'
+                      if (log.action === 'OCR_EDIT') {
+                        title = `${log.performedByName} đã cập nhật nháp`
+                        color = 'var(--blue)'
+                      } else if (log.action === 'VERIFIED') {
+                        title = `${log.performedByName} đã phê duyệt`
+                        color = '#10b981'
+                      } else if (log.action === 'REJECTED') {
+                        title = `${log.performedByName} đã từ chối`
+                        color = 'var(--danger)'
+                      } else {
+                        title = `${log.performedByName} thực hiện: ${log.action}`
+                      }
+
+                      return (
+                        <div 
+                          key={log.id} 
+                          className="notification-item"
+                          onClick={() => {
+                            setNotifDropdownOpen(false)
+                            const readIds = JSON.parse(localStorage.getItem('readNotificationIds') || '[]')
+                            if (!readIds.includes(log.id)) {
+                              const newReadIds = [...readIds, log.id]
+                              localStorage.setItem('readNotificationIds', JSON.stringify(newReadIds))
+                              setNotifications(prev => prev.filter(n => n.id !== log.id))
+                              setUnreadCount(prev => Math.max(0, prev - 1))
+                            }
+                            navigate(`/documents/${log.documentId}/review`)
+                          }}
+                        >
+                          <div className="notification-item-header">
+                            <span style={{ color, fontWeight: 700, fontSize: '10px' }}>
+                              {log.action === 'OCR_EDIT' ? 'CẬP NHẬT NHÁP' : log.action === 'VERIFIED' ? 'ĐÃ PHÊ DUYỆT' : 'BỊ TỪ CHỐI'}
+                            </span>
+                            <span className="notification-item-time">
+                              {new Date(log.performedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="notification-item-title">{title}</div>
+                          <div className="notification-item-desc">{log.details}</div>
+                        </div>
+                      )
+                    })}
+                    {notifications.length === 0 && (
+                      <div className="notification-empty">Không có thông báo mới nào.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Profile Dropdown Container */}
             <div className="profile-dropdown-container" ref={dropdownRef}>
@@ -217,14 +461,21 @@ function ProtectedLayout() {
                     <p className="dropdown-email">{profile?.email}</p>
                   </div>
                   <hr className="dropdown-divider" />
-                  <button className="dropdown-item" onClick={() => { setDropdownOpen(false); alert('Chức năng sửa thông tin sẽ được cập nhật.'); }}>
+                  <button className="dropdown-item" onClick={() => { setDropdownOpen(false); toast('Chức năng sửa thông tin sẽ được cập nhật.', { icon: 'ℹ️' }); }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                       <circle cx="12" cy="7" r="4"></circle>
                     </svg>
                     <span>Sửa thông tin</span>
                   </button>
-                  <button className="dropdown-item" onClick={() => { setDropdownOpen(false); alert('Cài đặt hệ thống.'); }}>
+                  <button className="dropdown-item" onClick={() => { setDropdownOpen(false); setChangePwdModalOpen(true); }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Đổi mật khẩu</span>
+                  </button>
+                  <button className="dropdown-item" onClick={() => { setDropdownOpen(false); toast('Cài đặt hệ thống.', { icon: '⚙️' }); }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="3"></circle>
                       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -246,6 +497,241 @@ function ProtectedLayout() {
           </div>
         </header>
 
+        {/* Change Password Modal */}
+        {changePwdModalOpen && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.2s ease'
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '440px',
+              padding: '28px',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+              border: '1px solid var(--gray-border, #e5e7eb)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ink)' }}>Đổi mật khẩu</h3>
+                <button 
+                  onClick={() => {
+                    setChangePwdModalOpen(false)
+                    setPwdForm({ oldPassword: '', newPassword: '', confirmNewPassword: '' })
+                    setPwdError('')
+                    setShowOldPwd(false)
+                    setShowNewPwd(false)
+                    setShowConfirmNewPwd(false)
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--ink-soft)',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    padding: '4px'
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-soft)' }}>Mật khẩu hiện tại</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showOldPwd ? 'text' : 'password'}
+                      placeholder="Nhập mật khẩu hiện tại"
+                      value={pwdForm.oldPassword}
+                      onChange={(e) => setPwdForm({ ...pwdForm, oldPassword: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 40px 10px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--gray-border, #d1d5db)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOldPwd(!showOldPwd)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--ink-soft, #6b7280)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {showOldPwd ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-soft)' }}>Mật khẩu mới</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showNewPwd ? 'text' : 'password'}
+                      placeholder="Mật khẩu mới (tối thiểu 6 ký tự)"
+                      value={pwdForm.newPassword}
+                      onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 40px 10px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--gray-border, #d1d5db)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPwd(!showNewPwd)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--ink-soft, #6b7280)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {showNewPwd ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-soft)' }}>Xác nhận mật khẩu mới</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showConfirmNewPwd ? 'text' : 'password'}
+                      placeholder="Nhập lại mật khẩu mới"
+                      value={pwdForm.confirmNewPassword}
+                      onChange={(e) => setPwdForm({ ...pwdForm, confirmNewPassword: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 40px 10px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--gray-border, #d1d5db)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPwd(!showConfirmNewPwd)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--ink-soft, #6b7280)',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {showConfirmNewPwd ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {pwdError && (
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--danger, #ef4444)', fontWeight: 500 }}>
+                    {pwdError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangePwdModalOpen(false)
+                      setPwdForm({ oldPassword: '', newPassword: '', confirmNewPassword: '' })
+                      setPwdError('')
+                      setShowOldPwd(false)
+                      setShowNewPwd(false)
+                      setShowConfirmNewPwd(false)
+                    }}
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--gray-border, #d1d5db)',
+                      background: 'white',
+                      color: 'var(--ink)',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={pwdLoading}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: 'var(--blue, #2563eb)',
+                      color: 'white',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      opacity: pwdLoading ? 0.7 : 1
+                    }}
+                  >
+                    {pwdLoading ? 'Đang đổi...' : 'Xác nhận'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        <ToastContainer position="top-right" autoClose={4000} theme="light" />
         <Outlet context={{ profile }} />
       </main>
     </div>

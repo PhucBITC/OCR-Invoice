@@ -39,6 +39,12 @@ public class UserEntity {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "reset_otp", length = 6)
+    private String resetOtp;
+
+    @Column(name = "reset_otp_expires_at")
+    private LocalDateTime resetOtpExpiresAt;
+
     @PrePersist
     void prePersist() {
         createdAt = LocalDateTime.now();
@@ -63,4 +69,8 @@ public class UserEntity {
     public void setRole(RoleEntity role) { this.role = role; }
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+    public String getResetOtp() { return resetOtp; }
+    public void setResetOtp(String resetOtp) { this.resetOtp = resetOtp; }
+    public LocalDateTime getResetOtpExpiresAt() { return resetOtpExpiresAt; }
+    public void setResetOtpExpiresAt(LocalDateTime resetOtpExpiresAt) { this.resetOtpExpiresAt = resetOtpExpiresAt; }
 }

@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface InvoiceHeaderRepository extends JpaRepository<InvoiceHeaderEntity, Long>, JpaSpecificationExecutor<InvoiceHeaderEntity> {
     Optional<InvoiceHeaderEntity> findByDocumentId(Long documentId);
+    boolean existsByVerifiedById(Long verifiedById);
 }

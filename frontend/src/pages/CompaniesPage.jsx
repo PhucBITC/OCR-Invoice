@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { companyApi } from '../api/companyApi'
+import { toast } from 'react-toastify'
 
 function CompaniesPage() {
   const { profile } = useOutletContext()
@@ -112,8 +113,10 @@ function CompaniesPage() {
 
       if (modalType === 'add') {
         await companyApi.create(payload)
+        toast.success('Thêm công ty thành công!')
       } else {
         await companyApi.update(currentCompanyId, payload)
+        toast.success('Cập nhật công ty thành công!')
       }
       setModalOpen(false)
       fetchCompanies()
@@ -134,11 +137,12 @@ function CompaniesPage() {
     setDeleting(true)
     try {
       await companyApi.delete(companyToDelete.id)
+      toast.success('Xóa công ty thành công!')
       setDeleteConfirmOpen(false)
       setCompanyToDelete(null)
       fetchCompanies()
     } catch (err) {
-      alert(err.message || 'Không thể xóa công ty.')
+      toast.error(err.message || 'Không thể xóa công ty.')
     } finally {
       setDeleting(false)
     }

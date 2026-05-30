@@ -307,7 +307,7 @@ function DashboardPage() {
             Phân bố tài liệu theo trạng thái
           </h2>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center', height: '200px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
             {statusData.map((item, idx) => {
               const pct = ((item.count / totalDocs) * 100).toFixed(1)
               let color = '#3b82f6'

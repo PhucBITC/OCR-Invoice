@@ -253,77 +253,79 @@ function DocumentListPage() {
           </div>
         ) : (
           <>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Tên tệp</th>
-                  <th>Loại chứng từ</th>
-                  <th>Doanh nghiệp</th>
-                  <th>Dung lượng</th>
-                  <th>Người tải lên</th>
-                  <th>Ngày tải</th>
-                  <th>Trạng thái</th>
-                  <th style={{ textAlign: 'right' }}>Hành động</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((doc) => (
-                  <tr key={doc.id}>
-                    <td style={{ fontWeight: 600, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.fileName}>
-                      {doc.fileName}
-                    </td>
-                    <td>{doc.documentTypeName || '-'}</td>
-                    <td>{doc.companyName || '-'}</td>
-                    <td>{formatSize(doc.fileSize)}</td>
-                    <td>{doc.uploadedByFullName}</td>
-                    <td>{formatDate(doc.createdAt)}</td>
-                    <td>{getStatusBadge(doc.status)}</td>
-                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 8 }}>
-                        {(doc.status === 'NEED_REVIEW' || doc.status === 'VERIFIED' || doc.status === 'REJECTED' || doc.status === 'ERROR') && (
-                          <Link
-                            to={`/documents/${doc.id}/review`}
-                            className="btn btn-primary btn-sm"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path>
-                            </svg>
-                            <span>Soát xét</span>
-                          </Link>
-                        )}
-                        {(doc.status === 'NEED_REVIEW' || doc.status === 'ERROR' || doc.status === 'REJECTED') && (
-                          <button
-                            onClick={() => handleTriggerOcr(doc.id)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                            </svg>
-                            <span>Quét lại</span>
-                          </button>
-                        )}
-                        <a
-                          href={documentApi.getFileUrl(doc.id)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-secondary btn-sm"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                          </svg>
-                          <span>Xem file</span>
-                        </a>
-                      </div>
-                    </td>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Tên tệp</th>
+                    <th>Loại chứng từ</th>
+                    <th>Doanh nghiệp</th>
+                    <th>Dung lượng</th>
+                    <th>Người tải lên</th>
+                    <th>Ngày tải</th>
+                    <th>Trạng thái</th>
+                    <th style={{ textAlign: 'right', width: '280px', whiteSpace: 'nowrap' }}>Hành động</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {documents.map((doc) => (
+                    <tr key={doc.id}>
+                      <td style={{ fontWeight: 600, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.fileName}>
+                        {doc.fileName}
+                      </td>
+                      <td>{doc.documentTypeName || '-'}</td>
+                      <td>{doc.companyName || '-'}</td>
+                      <td>{formatSize(doc.fileSize)}</td>
+                      <td>{doc.uploadedByFullName}</td>
+                      <td>{formatDate(doc.createdAt)}</td>
+                      <td>{getStatusBadge(doc.status)}</td>
+                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          {(doc.status === 'NEED_REVIEW' || doc.status === 'VERIFIED' || doc.status === 'REJECTED' || doc.status === 'ERROR') && (
+                            <Link
+                              to={`/documents/${doc.id}/review`}
+                              className="btn btn-primary btn-sm"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path>
+                              </svg>
+                              <span>Soát xét</span>
+                            </Link>
+                          )}
+                          {(doc.status === 'NEED_REVIEW' || doc.status === 'ERROR' || doc.status === 'REJECTED') && (
+                            <button
+                              onClick={() => handleTriggerOcr(doc.id)}
+                              className="btn btn-secondary btn-sm"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                              </svg>
+                              <span>Quét lại</span>
+                            </button>
+                          )}
+                          <a
+                            href={documentApi.getFileUrl(doc.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                              <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <span>Xem file</span>
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {/* Pagination Controls */}
             {totalPages > 1 && (

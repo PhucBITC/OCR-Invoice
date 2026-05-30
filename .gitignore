@@ -20,3 +20,6 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local configurations containing secrets
+**/application-local.properties

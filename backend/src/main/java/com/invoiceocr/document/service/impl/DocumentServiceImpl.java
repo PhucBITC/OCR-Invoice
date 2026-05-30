@@ -261,7 +261,8 @@ public class DocumentServiceImpl implements DocumentService {
             Thread.sleep(3000);
 
             // 3. Thực hiện quét tệp tin
-            OcrResult ocrResult = ocrProvider.performOcr(doc.getFilePath(), doc.getFileType());
+            String absoluteFilePath = rootLocation.resolve(doc.getFilePath()).toAbsolutePath().toString();
+            OcrResult ocrResult = ocrProvider.performOcr(absoluteFilePath, doc.getFileType());
 
             // 4. Xóa kết quả OCR cũ nếu có (để tránh lỗi Unique constraint hoặc duplicate khi quét thủ công lại)
             OcrResultEntity existingResult = ocrResultRepository.findByDocumentId(documentId).orElse(null);
@@ -308,9 +309,11 @@ public class DocumentServiceImpl implements DocumentService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             doc.setStatus("ERROR");
+            doc.setNote("Quá trình quét OCR bị gián đoạn.");
             documentRepository.save(doc);
         } catch (Exception e) {
             doc.setStatus("ERROR");
+            doc.setNote("Lỗi quét: " + (e.getMessage() != null ? e.getMessage() : "Lỗi không xác định"));
             documentRepository.save(doc);
         }
     }
@@ -353,9 +356,16 @@ public class DocumentServiceImpl implements DocumentService {
         DocumentEntity doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chứng từ"));
 
+        if ("VERIFIED".equals(doc.getStatus())) {
+            throw new IllegalArgumentException("Không thể chỉnh sửa hoặc lưu nháp chứng từ đã xác thực.");
+        }
+
         UserEntity user = userRepository.findByEmailIgnoreCase(username)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng: " + username));
 
+        if ("REJECTED".equals(doc.getStatus()) || "ERROR".equals(doc.getStatus()) || "UPLOADED".equals(doc.getStatus())) {
+            doc.setStatus("NEED_REVIEW");
+        }
         doc.setUpdatedAt(LocalDateTime.now());
         documentRepository.save(doc);
 
@@ -415,6 +425,10 @@ public class DocumentServiceImpl implements DocumentService {
     public void verifyDocument(Long documentId, OcrResult finalData, String username) {
         DocumentEntity doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chứng từ"));
+
+        if ("VERIFIED".equals(doc.getStatus())) {
+            throw new IllegalArgumentException("Chứng từ đã được xác thực trước đó.");
+        }
 
         UserEntity user = userRepository.findByEmailIgnoreCase(username)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng: " + username));
@@ -505,6 +519,10 @@ public class DocumentServiceImpl implements DocumentService {
     public void rejectDocument(Long documentId, String reason, String username) {
         DocumentEntity doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chứng từ"));
+
+        if ("VERIFIED".equals(doc.getStatus())) {
+            throw new IllegalArgumentException("Không thể từ chối chứng từ đã xác thực.");
+        }
 
         UserEntity user = userRepository.findByEmailIgnoreCase(username)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng: " + username));
@@ -661,5 +679,101 @@ public class DocumentServiceImpl implements DocumentService {
                         item.getAmount()
                 ))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportVerifiedInvoicesToCsv(String invoiceNumber, String startDate, String endDate, Double minAmount, Double maxAmount) {
+        Specification<InvoiceHeaderEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("invoiceNumber")), "%" + invoiceNumber.trim().toLowerCase() + "%"));
+            }
+
+            if (startDate != null && !startDate.isBlank()) {
+                try {
+                    java.time.LocalDate startLocalDate = java.time.LocalDate.parse(startDate.trim());
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("verifiedAt"), startLocalDate.atStartOfDay()));
+                } catch (Exception e) {
+                    // Ignore parsing exceptions
+                }
+            }
+
+            if (endDate != null && !endDate.isBlank()) {
+                try {
+                    java.time.LocalDate endLocalDate = java.time.LocalDate.parse(endDate.trim());
+                    predicates.add(cb.lessThanOrEqualTo(root.get("verifiedAt"), endLocalDate.atTime(23, 59, 59, 999999999)));
+                } catch (Exception e) {
+                    // Ignore parsing exceptions
+                }
+            }
+
+            if (minAmount != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("totalAmount"), minAmount));
+            }
+
+            if (maxAmount != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("totalAmount"), maxAmount));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        List<InvoiceHeaderEntity> invoices = invoiceHeaderRepository.findAll(spec, Sort.by("verifiedAt").descending());
+
+        StringBuilder csv = new StringBuilder();
+        // Add UTF-8 BOM
+        csv.append("\uFEFF");
+
+        // Headers
+        csv.append(String.join(",",
+            "\"Số hóa đơn\"",
+            "\"Ngày hóa đơn\"",
+            "\"Đơn vị bán\"",
+            "\"MST người bán\"",
+            "\"Đơn vị mua\"",
+            "\"MST người mua\"",
+            "\"Tiền trước thuế\"",
+            "\"Tiền thuế VAT\"",
+            "\"Tổng tiền\"",
+            "\"Phương thức thanh toán\"",
+            "\"Người duyệt\"",
+            "\"Ngày duyệt\""
+        )).append("\r\n");
+
+        for (InvoiceHeaderEntity h : invoices) {
+            String subtotalStr = h.getSubtotal() != null ? String.format("%.0f", h.getSubtotal()) : "";
+            String vatAmountStr = h.getVatAmount() != null ? String.format("%.0f", h.getVatAmount()) : "";
+            String totalAmountStr = h.getTotalAmount() != null ? String.format("%.0f", h.getTotalAmount()) : "";
+            String verifiedByEmail = h.getVerifiedBy() != null ? h.getVerifiedBy().getEmail() : "";
+            String verifiedAtStr = h.getVerifiedAt() != null ? h.getVerifiedAt().toString() : "";
+
+            csv.append(String.join(",",
+                escapeCsvField(h.getInvoiceNumber()),
+                escapeCsvField(h.getInvoiceDate()),
+                escapeCsvField(h.getSellerName()),
+                escapeCsvField(h.getSellerTaxCode()),
+                escapeCsvField(h.getBuyerName()),
+                escapeCsvField(h.getBuyerTaxCode()),
+                escapeCsvField(subtotalStr),
+                escapeCsvField(vatAmountStr),
+                escapeCsvField(totalAmountStr),
+                escapeCsvField(h.getPaymentMethod()),
+                escapeCsvField(verifiedByEmail),
+                escapeCsvField(verifiedAtStr)
+            )).append("\r\n");
+        }
+
+        return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String escapeCsvField(Object value) {
+        if (value == null) {
+            return "\"\"";
+        }
+        String str = value.toString();
+        str = str.replace("\"", "\"\"");
+        return "\"" + str + "\"";
     }
 }

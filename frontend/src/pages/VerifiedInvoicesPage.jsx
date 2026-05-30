@@ -6,6 +6,7 @@ function VerifiedInvoicesPage() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   // Filters
   const [invoiceNumber, setInvoiceNumber] = useState('')
@@ -70,6 +71,34 @@ function VerifiedInvoicesPage() {
     setPage(0)
   }
 
+  const handleExportCsv = async () => {
+    setExporting(true)
+    setError('')
+    try {
+      const params = {
+        invoiceNumber: invoiceNumber.trim() || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        minAmount: minAmount ? parseFloat(minAmount) : undefined,
+        maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+      }
+      const res = await documentApi.exportVerifiedInvoices(params)
+      const blob = res instanceof Blob ? res : new Blob([res], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `hoa_don_doi_soat_${new Date().toISOString().slice(0, 10)}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      link.parentNode.removeChild(link)
+    } catch (err) {
+      console.error('Failed to export CSV', err)
+      setError('Lỗi khi xuất tệp CSV đối soát: ' + (err.response?.data?.message || err.message || 'Lỗi không xác định'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const toggleExpandInvoice = async (invoiceId) => {
     if (expandedInvoiceId === invoiceId) {
       setExpandedInvoiceId(null)
@@ -131,70 +160,95 @@ function VerifiedInvoicesPage() {
 
       {/* Filter Form Card */}
       <div className="filter-card">
-        <form onSubmit={handleSearchSubmit} className="filter-grid">
-          <div className="filter-field">
-            <label className="filter-label">Số hóa đơn</label>
-            <input
-              type="text"
-              placeholder="Ví dụ: INV-2026-66"
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-              className="filter-input"
-            />
+        <form onSubmit={handleSearchSubmit}>
+          <div className="filter-grid" style={{ marginBottom: 20 }}>
+            <div className="filter-field">
+              <label className="filter-label">Số hóa đơn</label>
+              <input
+                type="text"
+                placeholder="Ví dụ: INV-2026-66"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Duyệt từ ngày</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Duyệt đến ngày</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Tổng tiền tối thiểu</label>
+              <input
+                type="number"
+                placeholder="đ"
+                value={minAmount}
+                onChange={(e) => setMinAmount(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label className="filter-label">Tổng tiền tối đa</label>
+              <input
+                type="number"
+                placeholder="đ"
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+                className="filter-input"
+              />
+            </div>
           </div>
 
-          <div className="filter-field">
-            <label className="filter-label">Duyệt từ ngày</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="filter-input"
-            />
-          </div>
-
-          <div className="filter-field">
-            <label className="filter-label">Duyệt đến ngày</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="filter-input"
-            />
-          </div>
-
-          <div className="filter-field">
-            <label className="filter-label">Tổng tiền tối thiểu</label>
-            <input
-              type="number"
-              placeholder="đ"
-              value={minAmount}
-              onChange={(e) => setMinAmount(e.target.value)}
-              className="filter-input"
-            />
-          </div>
-
-          <div className="filter-field">
-            <label className="filter-label">Tổng tiền tối đa</label>
-            <input
-              type="number"
-              placeholder="đ"
-              value={maxAmount}
-              onChange={(e) => setMaxAmount(e.target.value)}
-              className="filter-input"
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" className="btn btn-primary" style={{ flex: 1, height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="submit" className="btn btn-primary" style={{ height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
               Tìm kiếm
             </button>
-            <button type="button" className="btn btn-secondary" onClick={handleResetFilters} style={{ height: '42px', padding: '0 16px' }}>
+            <button type="button" className="btn btn-secondary" onClick={handleResetFilters} style={{ height: '42px', padding: '0 20px' }}>
               Xóa lọc
+            </button>
+            <button
+              type="button"
+              className="btn btn-success"
+              onClick={handleExportCsv}
+              disabled={exporting}
+              style={{ height: '42px', padding: '0 20px', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {exporting ? (
+                <>
+                  <div className="spinner" style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  Đang xuất...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Xuất CSV
+                </>
+              )}
             </button>
           </div>
         </form>

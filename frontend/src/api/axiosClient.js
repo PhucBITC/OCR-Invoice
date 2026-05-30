@@ -14,8 +14,14 @@ axiosClient.interceptors.request.use((config) => {
 axiosClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message = error.response?.data?.message || 'Co loi xay ra'
-    return Promise.reject(new Error(message))
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.errors?.[0] ||
+      'Có lỗi xảy ra'
+    const normalizedError = new Error(message)
+    normalizedError.status = error.response?.status
+    return Promise.reject(normalizedError)
   }
 )
 

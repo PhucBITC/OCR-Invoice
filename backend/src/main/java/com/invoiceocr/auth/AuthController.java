@@ -61,4 +61,33 @@ public class AuthController {
     public ApiResponse<Map<String, String>> logout() {
         return ApiResponse.ok("Logout successful", Map.of("status", "ok"));
     }
+
+    @PostMapping("/change-password")
+    public ApiResponse<String> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalArgumentException("Unauthorized");
+        }
+        String email = String.valueOf(authentication.getPrincipal());
+        authService.changePassword(email, request.oldPassword(), request.newPassword());
+        return ApiResponse.ok("Đổi mật khẩu thành công", null);
+    }
+
+    @PostMapping("/forgot-password")
+    public ApiResponse<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        return ApiResponse.ok("Mã OTP đã được gửi về email.", null);
+    }
+
+    @PostMapping("/verify-otp")
+    public ApiResponse<String> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        authService.verifyOtp(request.email(), request.otp());
+        return ApiResponse.ok("Xác minh mã OTP thành công", null);
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.email(), request.otp(), request.newPassword());
+        return ApiResponse.ok("Đặt lại mật khẩu thành công", null);
+    }
 }

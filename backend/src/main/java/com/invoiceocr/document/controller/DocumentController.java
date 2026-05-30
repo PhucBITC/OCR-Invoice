@@ -146,6 +146,21 @@ public class DocumentController {
         return ApiResponse.ok("Success", response);
     }
 
+    @GetMapping("/verified-invoices/export")
+    public ResponseEntity<byte[]> exportVerifiedInvoices(
+            @RequestParam(value = "invoiceNumber", required = false) String invoiceNumber,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate,
+            @RequestParam(value = "minAmount", required = false) Double minAmount,
+            @RequestParam(value = "maxAmount", required = false) Double maxAmount
+    ) {
+        byte[] csvData = documentService.exportVerifiedInvoicesToCsv(invoiceNumber, startDate, endDate, minAmount, maxAmount);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=utf-8")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"verified_invoices.csv\"")
+                .body(csvData);
+    }
+
     @GetMapping("/system-audit-logs")
     public ApiResponse<Page<AuditLogResponse>> getSystemAuditLogs(
             @RequestParam(value = "page", defaultValue = "0") int page,

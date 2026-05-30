@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 
 @Service
 public class AuthService {
@@ -34,6 +36,7 @@ public class AuthService {
     private final LoginLogRepository loginLogRepository;
     private final String devGoogleToken;
     private final GoogleIdTokenVerifier googleVerifier;
+    private final JavaMailSender mailSender;
 
     public AuthService(
             JwtService jwtService,
@@ -42,7 +45,8 @@ public class AuthService {
             RoleRepository roleRepository,
             LoginLogRepository loginLogRepository,
             @Value("${app.google.dev-token:dev-google-token}") String devGoogleToken,
-            @Value("${app.google.client-id}") String googleClientId
+            @Value("${app.google.client-id}") String googleClientId,
+            JavaMailSender mailSender
     ) {
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
@@ -53,6 +57,7 @@ public class AuthService {
         this.googleVerifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
                 .setAudience(Collections.singletonList(googleClientId))
                 .build();
+        this.mailSender = mailSender;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -164,6 +169,86 @@ public class AuthService {
         log.setSuccess(success);
         log.setReason(reason);
         loginLogRepository.save(log);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void changePassword(String email, String oldPassword, String newPassword) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng"));
+        
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Mật khẩu cũ không chính xác.");
+        }
+        
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    private void sendOtpEmail(String toEmail, String otp) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("phucxo262@gmail.com");
+            message.setTo(toEmail);
+            message.setSubject("Mã OTP khôi phục mật khẩu - Invoice OCR");
+            message.setText("Xin chào,\n\nMã OTP để khôi phục mật khẩu của bạn là: " + otp + "\n\nMã này có hiệu lực trong vòng 10 phút. Vui lòng không chia sẻ mã này với bất kỳ ai.\n\nTrân trọng,\nĐội ngũ Invoice OCR");
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi Email: " + e.getMessage());
+            throw new RuntimeException("Không thể gửi email OTP. Chi tiết lỗi: " + e.getMessage());
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void forgotPassword(String email) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại trong hệ thống."));
+        
+        // Generate 6 digit numeric OTP
+        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        user.setResetOtp(otp);
+        user.setResetOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
+        userRepository.save(user);
+        
+        // Print to console log as fallback
+        System.out.println("\n==================================================");
+        System.out.println("MÃ OTP RESET MẬT KHẨU CỦA " + email + " LÀ: " + otp);
+        System.out.println("==================================================\n");
+
+        // Send real email OTP
+        sendOtpEmail(email, otp);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void resetPassword(String email, String otp, String newPassword) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại trong hệ thống."));
+        
+        if (user.getResetOtp() == null || !user.getResetOtp().equals(otp)) {
+            throw new IllegalArgumentException("Mã OTP không chính xác.");
+        }
+        
+        if (user.getResetOtpExpiresAt() == null || user.getResetOtpExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Mã OTP đã hết hạn.");
+        }
+        
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setResetOtp(null);
+        user.setResetOtpExpiresAt(null);
+        userRepository.save(user);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public void verifyOtp(String email, String otp) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("Email không tồn tại trong hệ thống."));
+        
+        if (user.getResetOtp() == null || !user.getResetOtp().equals(otp)) {
+            throw new IllegalArgumentException("Mã OTP không chính xác.");
+        }
+        
+        if (user.getResetOtpExpiresAt() == null || user.getResetOtpExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Mã OTP đã hết hạn.");
+        }
     }
 
     private record GoogleProfile(String googleId, String email, String fullName) {

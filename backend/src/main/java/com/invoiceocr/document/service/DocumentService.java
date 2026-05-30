@@ -24,4 +24,5 @@ public interface DocumentService {
     Page<InvoiceHeaderResponse> getVerifiedInvoices(int page, int size, String invoiceNumber, String startDate, String endDate, Double minAmount, Double maxAmount);
     Page<AuditLogResponse> getSystemAuditLogs(int page, int size, String action, String performedByEmail, String startDate, String endDate);
     List<InvoiceItemResponse> getVerifiedInvoiceItems(Long invoiceHeaderId);
+    byte[] exportVerifiedInvoicesToCsv(String invoiceNumber, String startDate, String endDate, Double minAmount, Double maxAmount);
 }

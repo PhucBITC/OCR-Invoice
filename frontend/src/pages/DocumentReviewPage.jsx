@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { documentApi } from '../api/documentApi'
+import { toast } from 'react-toastify'
+import ConfirmModal from '../components/common/ConfirmModal'
 
 function DocumentReviewPage() {
   const { id } = useParams()
@@ -36,6 +38,7 @@ function DocumentReviewPage() {
   // Rejection Modal states
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [verifyConfirmOpen, setVerifyConfirmOpen] = useState(false)
 
   useEffect(() => {
     loadPageData()
@@ -140,32 +143,38 @@ function DocumentReviewPage() {
 
   // Action handlers
   const handleSaveDraft = async () => {
+    console.log('handleSaveDraft clicked, current ocrData:', ocrData);
     setSubmitting(true)
     setError('')
     setSuccessMsg('')
     try {
-      await documentApi.saveDraft(id, ocrData)
-      setSuccessMsg('Đã lưu bản nháp kết quả chỉnh sửa OCR thành công.')
+      console.log('Sending API request with id:', id, 'and data:', ocrData);
+      const res = await documentApi.saveDraft(id, ocrData)
+      console.log('API response:', res);
+      toast.success('Đã lưu bản nháp kết quả chỉnh sửa OCR thành công.')
       await reloadLogs()
-      setTimeout(() => setSuccessMsg(''), 5000)
     } catch (err) {
-      setError(err.message || 'Lỗi lưu bản nháp.')
+      console.error('Save draft error:', err);
+      toast.error(err.message || 'Lỗi lưu bản nháp.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleVerify = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn phê duyệt hóa đơn này? Dữ liệu sẽ được xuất chính thức.')) {
-      return
-    }
+  const requestVerify = () => {
+    setVerifyConfirmOpen(true)
+  }
+
+  const confirmVerify = async () => {
+    setVerifyConfirmOpen(false)
     setSubmitting(true)
     setError('')
     try {
       await documentApi.verify(id, ocrData)
+      toast.success('Phê duyệt chứng từ thành công!')
       navigate('/documents')
     } catch (err) {
-      setError(err.message || 'Lỗi phê duyệt hóa đơn.')
+      toast.error(err.message || 'Lỗi phê duyệt hóa đơn.')
       setSubmitting(false)
     }
   }
@@ -173,17 +182,18 @@ function DocumentReviewPage() {
   const handleRejectSubmit = async (e) => {
     e.preventDefault()
     if (!rejectReason.trim()) {
-      alert('Vui lòng điền lý do từ chối.')
+      toast.error('Vui lòng điền lý do từ chối.')
       return
     }
     setSubmitting(true)
     setError('')
     try {
       await documentApi.reject(id, rejectReason)
+      toast.success('Từ chối chứng từ thành công!')
       setRejectOpen(false)
       navigate('/documents')
     } catch (err) {
-      setError(err.message || 'Lỗi từ chối tài liệu.')
+      toast.error(err.message || 'Lỗi từ chối tài liệu.')
       setSubmitting(false)
     }
   }
@@ -220,6 +230,23 @@ function DocumentReviewPage() {
       </div>
     )
   }
+
+  const { profile } = useOutletContext()
+  const role = profile?.role || 'STAFF'
+  const isAdmin = role === 'ADMIN'
+  const isStaff = role === 'STAFF'
+  const isReviewer = role === 'REVIEWER'
+  const isManager = role === 'MANAGER'
+
+  // Decide if fields can be edited
+  let isEditable = false
+  if (isAdmin) {
+    isEditable = doc?.status !== 'VERIFIED'
+  } else if (isStaff) {
+    isEditable = doc?.status === 'UPLOADED' || doc?.status === 'ERROR' || doc?.status === 'REJECTED'
+  }
+
+  const isReadOnly = !isEditable
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 70px)', overflow: 'hidden' }}>
@@ -292,6 +319,7 @@ function DocumentReviewPage() {
                 value={ocrData.invoiceNumber || ''}
                 onChange={(e) => setOcrData({ ...ocrData, invoiceNumber: e.target.value })}
                 placeholder="Nhập số hóa đơn..."
+                disabled={isReadOnly}
               />
             </div>
             <div className="form-group">
@@ -300,6 +328,7 @@ function DocumentReviewPage() {
                 type="date"
                 value={ocrData.invoiceDate || ''}
                 onChange={(e) => setOcrData({ ...ocrData, invoiceDate: e.target.value })}
+                disabled={isReadOnly}
               />
             </div>
             <div className="form-group">
@@ -309,6 +338,7 @@ function DocumentReviewPage() {
                 value={ocrData.paymentMethod || ''}
                 onChange={(e) => setOcrData({ ...ocrData, paymentMethod: e.target.value })}
                 placeholder="Chuyển khoản, tiền mặt..."
+                disabled={isReadOnly}
               />
             </div>
             <div className="form-group">
@@ -320,6 +350,7 @@ function DocumentReviewPage() {
                 max="1"
                 value={ocrData.confidence || ''}
                 onChange={(e) => setOcrData({ ...ocrData, confidence: parseFloat(e.target.value) || 0.0 })}
+                disabled={isReadOnly}
               />
             </div>
           </div>
@@ -336,6 +367,7 @@ function DocumentReviewPage() {
                   value={ocrData.sellerName || ''}
                   onChange={(e) => setOcrData({ ...ocrData, sellerName: e.target.value })}
                   style={{ height: 34, fontSize: 12 }}
+                  disabled={isReadOnly}
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -345,6 +377,7 @@ function DocumentReviewPage() {
                   value={ocrData.sellerTaxCode || ''}
                   onChange={(e) => setOcrData({ ...ocrData, sellerTaxCode: e.target.value })}
                   style={{ height: 34, fontSize: 12 }}
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -359,6 +392,7 @@ function DocumentReviewPage() {
                   value={ocrData.buyerName || ''}
                   onChange={(e) => setOcrData({ ...ocrData, buyerName: e.target.value })}
                   style={{ height: 34, fontSize: 12 }}
+                  disabled={isReadOnly}
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -368,6 +402,7 @@ function DocumentReviewPage() {
                   value={ocrData.buyerTaxCode || ''}
                   onChange={(e) => setOcrData({ ...ocrData, buyerTaxCode: e.target.value })}
                   style={{ height: 34, fontSize: 12 }}
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -382,6 +417,7 @@ function DocumentReviewPage() {
                 onClick={handleAddItem}
                 className="btn btn-secondary btn-sm"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 28, fontSize: 11, padding: '0 8px' }}
+                disabled={isReadOnly}
               >
                 + Thêm dòng
               </button>
@@ -408,6 +444,7 @@ function DocumentReviewPage() {
                           onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
                           style={{ width: '100%', height: 30, fontSize: 12, padding: '0 6px', border: '1px solid #d1d5db', borderRadius: 4 }}
                           placeholder="Tên sản phẩm..."
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '6px 10px' }}>
@@ -416,6 +453,7 @@ function DocumentReviewPage() {
                           value={item.quantity === 0 ? '' : item.quantity}
                           onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                           style={{ width: '100%', height: 30, fontSize: 12, padding: '0 6px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '6px 10px' }}>
@@ -424,6 +462,7 @@ function DocumentReviewPage() {
                           value={item.unitPrice === 0 ? '' : item.unitPrice}
                           onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                           style={{ width: '100%', height: 30, fontSize: 12, padding: '0 6px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '6px 10px', fontWeight: 600, color: 'var(--ink)' }}>
@@ -433,7 +472,8 @@ function DocumentReviewPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(idx)}
-                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 4 }}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: isReadOnly ? 'not-allowed' : 'pointer', padding: 4 }}
+                          disabled={isReadOnly}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6"></polyline>
@@ -469,6 +509,7 @@ function DocumentReviewPage() {
                   value={ocrData.vatAmount || 0}
                   onChange={(e) => setOcrData({ ...ocrData, vatAmount: parseFloat(e.target.value) || 0.0, totalAmount: (ocrData.subtotal || 0) + (parseFloat(e.target.value) || 0.0) })}
                   style={{ width: 120, height: 26, fontSize: 12, padding: '0 6px', border: '1px solid #d1d5db', borderRadius: 4, textAlign: 'right' }}
+                  disabled={isReadOnly}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 8, fontSize: 14, fontWeight: 700 }}>
@@ -531,31 +572,37 @@ function DocumentReviewPage() {
           </button>
           
           <div style={{ display: 'flex', gap: 12 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleSaveDraft}
-              disabled={submitting || doc?.status === 'VERIFIED'}
-            >
-              Lưu bản nháp
-            </button>
-            <button
-              type="button"
-              className="btn"
-              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
-              onClick={() => { setRejectReason(''); setRejectOpen(true); }}
-              disabled={submitting || doc?.status === 'VERIFIED' || doc?.status === 'REJECTED'}
-            >
-              Từ chối
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleVerify}
-              disabled={submitting || doc?.status === 'VERIFIED'}
-            >
-              Phê duyệt (Verify)
-            </button>
+            {(isAdmin || isStaff) && isEditable && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleSaveDraft}
+                disabled={submitting}
+              >
+                Lưu bản nháp
+              </button>
+            )}
+            {(isAdmin || isReviewer) && doc?.status !== 'VERIFIED' && doc?.status !== 'REJECTED' && (
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                onClick={() => { setRejectReason(''); setRejectOpen(true); }}
+                disabled={submitting}
+              >
+                Từ chối
+              </button>
+            )}
+            {(isAdmin || isReviewer) && doc?.status !== 'VERIFIED' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={requestVerify}
+                disabled={submitting}
+              >
+                Phê duyệt (Verify)
+              </button>
+            )}
           </div>
         </div>
 
@@ -600,6 +647,16 @@ function DocumentReviewPage() {
         </div>
       )}
 
+      <ConfirmModal
+        isOpen={verifyConfirmOpen}
+        title="Xác nhận phê duyệt"
+        message="Bạn có chắc chắn muốn phê duyệt hóa đơn này? Dữ liệu sẽ được xuất chính thức."
+        onConfirm={confirmVerify}
+        onCancel={() => setVerifyConfirmOpen(false)}
+        confirmText="Phê duyệt"
+        cancelText="Hủy"
+        type="primary"
+      />
     </div>
   )
 }
