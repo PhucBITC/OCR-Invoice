@@ -57,6 +57,17 @@ public class AuthController {
         ));
     }
 
+    @PutMapping("/profile")
+    public ApiResponse<UserProfile> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalArgumentException("Unauthorized");
+        }
+        String email = String.valueOf(authentication.getPrincipal());
+        UserProfile updatedProfile = authService.updateProfile(email, request.fullName());
+        return ApiResponse.ok("Cập nhật thông tin thành công", updatedProfile);
+    }
+
     @PostMapping("/logout")
     public ApiResponse<Map<String, String>> logout() {
         return ApiResponse.ok("Logout successful", Map.of("status", "ok"));

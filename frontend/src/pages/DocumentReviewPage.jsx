@@ -244,6 +244,8 @@ function DocumentReviewPage() {
     isEditable = doc?.status !== 'VERIFIED'
   } else if (isStaff) {
     isEditable = doc?.status === 'UPLOADED' || doc?.status === 'ERROR' || doc?.status === 'REJECTED'
+  } else if (isReviewer) {
+    isEditable = doc?.status === 'NEED_REVIEW'
   }
 
   const isReadOnly = !isEditable
@@ -572,7 +574,7 @@ function DocumentReviewPage() {
           </button>
           
           <div style={{ display: 'flex', gap: 12 }}>
-            {(isAdmin || isStaff) && isEditable && (
+            {(isAdmin || isStaff || isReviewer) && isEditable && (
               <button
                 type="button"
                 className="btn btn-secondary"

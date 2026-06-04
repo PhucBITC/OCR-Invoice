@@ -29,6 +29,12 @@ function ProtectedLayout() {
   const [showNewPwd, setShowNewPwd] = useState(false)
   const [showConfirmNewPwd, setShowConfirmNewPwd] = useState(false)
 
+  // Edit profile states
+  const [editProfileModalOpen, setEditProfileModalOpen] = useState(false)
+  const [profileForm, setProfileForm] = useState({ fullName: '' })
+  const [profileError, setProfileError] = useState('')
+  const [profileLoading, setProfileLoading] = useState(false)
+
   useEffect(() => {
     if (!loading && profile) {
       const isAdmin = profile.role === 'ADMIN'
@@ -170,6 +176,34 @@ function ProtectedLayout() {
       setPwdError(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi đổi mật khẩu.')
     } finally {
       setPwdLoading(false)
+    }
+  }
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault()
+    setProfileError('')
+    
+    if (!profileForm.fullName.trim()) {
+      setProfileError('Vui lòng nhập họ và tên.')
+      return
+    }
+
+    setProfileLoading(true)
+    try {
+      const res = await authApi.updateProfile({
+        fullName: profileForm.fullName.trim()
+      })
+      if (res && res.data) {
+        setProfile(res.data)
+      } else {
+        setProfile(prev => ({ ...prev, fullName: profileForm.fullName.trim() }))
+      }
+      toast.success('Cập nhật thông tin thành công!')
+      setEditProfileModalOpen(false)
+    } catch (err) {
+      setProfileError(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi cập nhật thông tin.')
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -461,7 +495,12 @@ function ProtectedLayout() {
                     <p className="dropdown-email">{profile?.email}</p>
                   </div>
                   <hr className="dropdown-divider" />
-                  <button className="dropdown-item" onClick={() => { setDropdownOpen(false); toast('Chức năng sửa thông tin sẽ được cập nhật.', { icon: 'ℹ️' }); }}>
+                  <button className="dropdown-item" onClick={() => { 
+                    setDropdownOpen(false); 
+                    setProfileForm({ fullName: profile?.fullName || '' });
+                    setProfileError('');
+                    setEditProfileModalOpen(true); 
+                  }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                       <circle cx="12" cy="7" r="4"></circle>
@@ -724,6 +763,156 @@ function ProtectedLayout() {
                     }}
                   >
                     {pwdLoading ? 'Đang đổi...' : 'Xác nhận'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Profile Modal */}
+        {editProfileModalOpen && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.2s ease'
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '440px',
+              padding: '28px',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+              border: '1px solid var(--gray-border, #e5e7eb)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ink)' }}>Chỉnh sửa thông tin</h3>
+                <button 
+                  onClick={() => {
+                    setEditProfileModalOpen(false)
+                    setProfileError('')
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--ink-soft)',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    padding: '4px'
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Email (Read-only) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-soft)' }}>Email (Không thể thay đổi)</label>
+                  <input
+                    type="email"
+                    value={profile?.email || ''}
+                    disabled
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--gray-border, #d1d5db)',
+                      backgroundColor: '#f3f4f6',
+                      color: 'var(--ink-soft)',
+                      fontSize: '14px',
+                      outline: 'none',
+                      cursor: 'not-allowed'
+                    }}
+                  />
+                </div>
+
+                {/* Role (Read-only) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-soft)' }}>Vai trò</label>
+                  <div style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--gray-border, #d1d5db)',
+                    backgroundColor: '#f3f4f6',
+                    color: 'var(--ink-soft)',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <span className="role-badge" style={{ margin: 0 }}>{profile?.role}</span>
+                  </div>
+                </div>
+
+                {/* Full Name */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Họ và tên</label>
+                  <input
+                    type="text"
+                    placeholder="Nhập họ và tên của bạn"
+                    value={profileForm.fullName}
+                    onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--gray-border, #d1d5db)',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                    required
+                  />
+                </div>
+
+                {profileError && (
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--danger, #ef4444)', fontWeight: 500 }}>
+                    {profileError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditProfileModalOpen(false)
+                      setProfileError('')
+                    }}
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--gray-border, #d1d5db)',
+                      background: 'white',
+                      color: 'var(--ink)',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={profileLoading}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: 'var(--blue, #2563eb)',
+                      color: 'white',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      opacity: profileLoading ? 0.7 : 1
+                    }}
+                  >
+                    {profileLoading ? 'Đang lưu...' : 'Xác nhận'}
                   </button>
                 </div>
               </form>

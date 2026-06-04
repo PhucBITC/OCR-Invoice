@@ -16,6 +16,8 @@ import com.invoiceocr.user.entity.RoleEntity;
 import com.invoiceocr.user.entity.UserEntity;
 import com.invoiceocr.user.repository.RoleRepository;
 import com.invoiceocr.user.repository.UserRepository;
+import com.invoiceocr.user.UserProfile;
+import com.invoiceocr.user.Role;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -249,6 +251,23 @@ public class AuthService {
         if (user.getResetOtpExpiresAt() == null || user.getResetOtpExpiresAt().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Mã OTP đã hết hạn.");
         }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public UserProfile updateProfile(String email, String fullName) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng"));
+        
+        user.setFullName(fullName.trim());
+        UserEntity updated = userRepository.save(user);
+        
+        return new UserProfile(
+                updated.getEmail(),
+                updated.getFullName(),
+                Role.valueOf(updated.getRole().getCode().name()),
+                updated.getId(),
+                updated.getStatus()
+        );
     }
 
     private record GoogleProfile(String googleId, String email, String fullName) {

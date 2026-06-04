@@ -9,4 +9,5 @@ export const authApi = {
   forgotPassword: (email) => axiosClient.post('/auth/forgot-password', { email }),
   verifyOtp: (payload) => axiosClient.post('/auth/verify-otp', payload),
   resetPassword: (payload) => axiosClient.post('/auth/reset-password', payload),
+  updateProfile: (payload) => axiosClient.put('/auth/profile', payload),
 }
