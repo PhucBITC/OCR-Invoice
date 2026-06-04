@@ -127,21 +127,21 @@ npm run dev
 *Dưới đây là một số hình ảnh thực tế từ hệ thống phục vụ quá trình trình bày demo:*
 
 ### 1. Màn hình Đăng nhập (Google Single Sign-On)
-![Giao diện Đăng nhập](https://placehold.co/800x450/4f46e5/ffffff?text=Login+Page+-+Google+SSO)
+![Giao diện Đăng nhập](./login.png)
 > Người dùng đăng nhập nhanh chóng bằng tài khoản Google doanh nghiệp để hệ thống tự động xác thực và phân quyền truy cập.
 
 ### 2. Giao diện Dashboard Quản lý
-![Giao diện Dashboard](https://placehold.co/800x450/0f172a/ffffff?text=Dashboard+Analytics)
+![Giao diện Dashboard](./dashboard.png)
 > Hiển thị số liệu tổng quan hóa đơn theo trạng thái và biểu đồ trực quan đo hiệu suất làm việc của phòng ban kế toán.
 
 ### 3. Trang Tải lên Tài liệu
-![Tải lên Tài liệu](https://placehold.co/800x450/4b5563/ffffff?text=Upload+Invoices)
+![Tải lên Tài liệu](./upload.png)
 > Cho phép kéo thả tệp hóa đơn (ảnh/PDF) dung lượng tối đa 20MB, gán nhanh metadata về khách hàng và kích hoạt tiến trình OCR tự động.
 
 ### 4. Giao diện Soát xét & So khớp OCR (Double-Pane View)
-![Giao diện Soát xét](https://placehold.co/800x450/0284c7/ffffff?text=Double-pane+OCR+Review)
+![Giao diện Soát xét](./review.png)
 > Điểm nhấn chính của demo: Xem song song hóa đơn gốc bên trái và biểu mẫu dữ liệu đã trích xuất bên phải. Cho phép chỉnh sửa trực tiếp, hiển thị lịch sử thay đổi và thực hiện phê duyệt/từ chối tức thì.
 
 ### 5. Nhật ký Kiểm toán (System Audit Logs)
-![Nhật ký Hệ thống](https://placehold.co/800x450/1e293b/ffffff?text=Audit+Logs+Monitoring)
+![Nhật ký Hệ thống](./audit_logs.png)
 > Đảm bảo tính minh bạch bằng việc ghi chép chi tiết lịch sử mọi sửa đổi dữ liệu: ai đã sửa, sửa trường nào từ giá trị cũ sang giá trị mới và vào thời gian nào.
